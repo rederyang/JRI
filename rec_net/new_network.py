@@ -30,14 +30,13 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
         all shape == [bs, 2, x, y]
         """
         img_full = data_batch[0].to(self.rank, non_blocking=True)  # full sampled image [bs, 1, x, y]
-        img_full = torch.view_as_real(img_full[:, 0].type(torch.complex64)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
-        mask_omega = data_batch[1].to(self.rank, non_blocking=True)
-        mask_subset1 = data_batch[2].to(self.rank, non_blocking=True)
-        mask_subset2 = data_batch[3].to(self.rank, non_blocking=True)
+        img_full = torch.view_as_real(img_full[:, 0]).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
+        mask_omega = data_batch[1].to(self.rank, non_blocking=True).permute(0, 3, 1, 2).contiguous()
+        mask_subset1 = data_batch[2].to(self.rank, non_blocking=True).permute(0, 3, 1, 2).contiguous()
+        mask_subset2 = data_batch[3].to(self.rank, non_blocking=True).permute(0, 3, 1, 2).contiguous()
 
         if mode == 'train':  # save unsup and sup sample idx, because they have different behaviours when forward
-            # _is_unsupervised = data_batch[4]['_is_unsupervised']  # [bs, ]
-            _is_unsupervised = torch.tensor([True]*data_batch[0].shape[0])
+            _is_unsupervised = data_batch[4]['_is_unsupervised']  # [bs, ]
             unsupervised_idx = _is_unsupervised.nonzero()[:, 0]
             supervised_idx = torch.logical_not(_is_unsupervised).nonzero()[:, 0]
             self.supervised_idx = supervised_idx

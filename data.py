@@ -87,6 +87,8 @@ class VolumeDataset(torch.utils.data.Dataset):
 
         array = pad_np(array, pad)
 
+        array = array.astype(np.complex64)
+
         # # add num on each slice in each direction, to check
         # from PIL import Image
         # from PIL import ImageDraw
@@ -125,9 +127,25 @@ class ThickVolumeDataset(VolumeDataset):
 class ReconThickVolumeDataset(ThickVolumeDataset):
     def __init__(self, mask_omega_path, mask_subset_1_path, mask_subset_2_path, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mask_omega = torch.from_numpy(np.array(sio.loadmat(mask_omega_path)['mask']))[None, ...]  # add channel dim
-        self.mask_subset_1 = torch.from_numpy(np.array(sio.loadmat(mask_subset_1_path)['mask']))[None, ...]
-        self.mask_subset_2 = torch.from_numpy(np.array(sio.loadmat(mask_subset_2_path)['mask']))[None, ...]
+        self.thick_array = self.thick_array.type(torch.complex64)
+
+        self.mask_under = np.array(sio.loadmat(mask_omega_path)['mask'])
+        self.s_mask_up = np.array(sio.loadmat(mask_subset_1_path)['mask'])
+        self.s_mask_down = np.array(sio.loadmat(mask_subset_2_path)['mask'])
+
+        self.mask_net_up = self.mask_under * self.s_mask_up
+        self.mask_net_down = self.mask_under * self.s_mask_down
+
+        self.mask_under = np.stack((self.mask_under, self.mask_under), axis=-1)
+        self.mask_omega = torch.from_numpy(self.mask_under).float()
+        self.mask_net_up = np.stack((self.mask_net_up, self.mask_net_up), axis=-1)
+        self.mask_subset_1 = torch.from_numpy(self.mask_net_up).float()
+        self.mask_net_down = np.stack((self.mask_net_down, self.mask_net_down), axis=-1)
+        self.mask_subset_2 = torch.from_numpy(self.mask_net_down).float()
+
+        # self.mask_omega = torch.from_numpy(np.array(sio.loadmat(mask_omega_path)['mask']))[None, ...]  # add channel dim
+        # self.mask_subset_1 = torch.from_numpy(np.array(sio.loadmat(mask_subset_1_path)['mask']))[None, ...]
+        # self.mask_subset_2 = torch.from_numpy(np.array(sio.loadmat(mask_subset_2_path)['mask']))[None, ...]
 
     def __len__(self):
         return self.end - self.start
@@ -136,7 +154,7 @@ class ReconThickVolumeDataset(ThickVolumeDataset):
         slice = torch.index_select(self.thick_array, 3,
                                            torch.tensor([index + self.start])).squeeze(dim=3)
 
-        return slice, self.mask_omega, self.mask_subset_1, self.mask_subset_2
+        return slice, self.mask_omega, self.mask_subset_1, self.mask_subset_2, {'_is_unsupervised': True}
 
 
 class InterPretrainThickVolumeDataset(ThickVolumeDataset):
