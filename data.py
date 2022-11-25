@@ -143,10 +143,6 @@ class ReconThickVolumeDataset(ThickVolumeDataset):
         self.mask_net_down = np.stack((self.mask_net_down, self.mask_net_down), axis=-1)
         self.mask_subset_2 = torch.from_numpy(self.mask_net_down).float()
 
-        # self.mask_omega = torch.from_numpy(np.array(sio.loadmat(mask_omega_path)['mask']))[None, ...]  # add channel dim
-        # self.mask_subset_1 = torch.from_numpy(np.array(sio.loadmat(mask_subset_1_path)['mask']))[None, ...]
-        # self.mask_subset_2 = torch.from_numpy(np.array(sio.loadmat(mask_subset_2_path)['mask']))[None, ...]
-
     def __len__(self):
         return self.end - self.start
 
