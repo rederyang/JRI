@@ -30,7 +30,8 @@ parser.add_argument('--batch-size', type=int, default=2, help='batch size of sin
 parser.add_argument('--num-workers', type=int, default=8, help='number of workers')
 parser.add_argument('--warmup-epochs', type=int, default=-1, help='number of warmup epochs')
 parser.add_argument('--num-epochs', type=int, default=500, help='maximum number of epochs')
-parser.add_argument('--patience', type=int, default=100000)
+parser.add_argument('--reduce-lr-patience', type=int, default=100000)
+parser.add_argument('--early-stop-patience', type=int, default=100000)
 # parameters related to data and masks
 parser.add_argument('--train-tsv-path', metavar='/path/to/training_data', default="./train_participants.tsv", type=str)
 parser.add_argument('--val-tsv-path', metavar='/path/to/validation_data', default="./val_participants.tsv", type=str)
