@@ -80,7 +80,7 @@ def solvers(args):
         'mask_subset_1_path': args.s_mask_up_path,
         'mask_subset_2_path': args.s_mask_down_path,
         'pad': (256, 256, 256),
-        'q': 0.2,
+        'q': args.drop_rate,
     }
 
     if args.mode == 'test':
