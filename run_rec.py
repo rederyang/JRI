@@ -40,7 +40,7 @@ parser.add_argument('--data-path', metavar='/path/to/data', default='/mnt/d/data
 parser.add_argument('--train-obj-limit', type=int, default=20, help='number of objects in training set')
 parser.add_argument('--val-obj-limit', type=int, default=5, help='number of objects in val set')
 parser.add_argument('--test-obj-limit', type=int, default=20, help='number of objects in test set')
-parser.add_argument('--drop-rate', type=int, default=0.2, help='ratio to drop edge slices')
+parser.add_argument('--drop-rate', type=float, default=0.2, help='ratio to drop edge slices')
 parser.add_argument('--u-mask-path', type=str, default='./mask/undersampling_mask/mask_8.00x_acs24.mat',
                     help='undersampling mask')
 parser.add_argument('--s-mask-up-path', type=str, default='./mask/selecting_mask/mask_2.00x_acs16.mat',
