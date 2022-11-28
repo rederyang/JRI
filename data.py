@@ -87,7 +87,7 @@ class VolumeDataset(torch.utils.data.Dataset):
 
         array = pad_np(array, pad)
 
-        array = array.astype(np.complex64)
+        # array = array.astype(np.complex64)
 
         # # add num on each slice in each direction, to check
         # from PIL import Image
