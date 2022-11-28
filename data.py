@@ -238,6 +238,7 @@ def get_volume_datasets(tsv_path, data_path, ds_class, ds_kwargs, sub_limit=-1):
         dss.append(
             ds_class(**ds_kwargs)
         )
+        ds_kwargs.pop('volume')
         if len(dss) == sub_limit:  # confine number of subjects
             break
 
