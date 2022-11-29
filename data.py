@@ -36,6 +36,16 @@ def center_crop(data, shape):
     return data
 
 
+def crop_np(data: np.array, shape: [tuple, np.array]) -> np.array:
+    if isinstance(shape, tuple):
+        shape = np.array(shape)
+    start = (data.shape[-3:] - shape) // 2
+    end = start + shape
+    data = data[..., start[-3]:end[-3], start[-2]:end[-2], start[-1]:end[-1]]
+
+    return data
+
+
 def pad_np(data, shape):
     h, w, d = data.shape
     _h, _w, _d = shape
@@ -113,6 +123,39 @@ class VolumeDataset(torch.utils.data.Dataset):
 
         torch_array_padded = torch.from_numpy(array)
         self.array = torch_array_padded[None, ...]  # add channel dim
+
+        length = self.array.shape[3]
+        self.start = round(length * self.q)
+        self.end = length - self.start
+
+
+class ReconVolumeDataset(VolumeDataset):
+    def __init__(self, mask_omega_path, mask_subset_1_path, mask_subset_2_path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.array = self.array.type(torch.complex64)
+
+        self.mask_under = np.array(sio.loadmat(mask_omega_path)['mask'])
+        self.s_mask_up = np.array(sio.loadmat(mask_subset_1_path)['mask'])
+        self.s_mask_down = np.array(sio.loadmat(mask_subset_2_path)['mask'])
+
+        self.mask_net_up = self.mask_under * self.s_mask_up
+        self.mask_net_down = self.mask_under * self.s_mask_down
+
+        self.mask_under = np.stack((self.mask_under, self.mask_under), axis=-1)
+        self.mask_omega = torch.from_numpy(self.mask_under).float()
+        self.mask_net_up = np.stack((self.mask_net_up, self.mask_net_up), axis=-1)
+        self.mask_subset_1 = torch.from_numpy(self.mask_net_up).float()
+        self.mask_net_down = np.stack((self.mask_net_down, self.mask_net_down), axis=-1)
+        self.mask_subset_2 = torch.from_numpy(self.mask_net_down).float()
+
+    def __len__(self):
+        return self.end - self.start
+
+    def __getitem__(self, index):
+        slice = torch.index_select(self.array, 3,
+                                           torch.tensor([index + self.start])).squeeze(dim=3)
+
+        return slice, self.mask_omega, self.mask_subset_1, self.mask_subset_2, {'_is_unsupervised': True}
 
 
 class ThickVolumeDataset(VolumeDataset):
