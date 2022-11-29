@@ -65,8 +65,7 @@ def solvers(args):
 
     # model
     model = make_model(0, args)  # 0 is rank
-    if args.mode == 'test':
-        model.load_best()
+    model.load_best()
     model = model.cuda()
 
     logger.info('Current epoch {}.'.format(model.epoch))
@@ -112,13 +111,12 @@ def solvers(args):
         rec_nii = nib.Nifti1Image(rec_volume, nii.affine)  # affine information from original nii
 
         # save to nii.gz
-        rec_nii_path = ''.join(list(os.path.split(nii_path)[:-1]) + ['rec'] + list(os.path.split(nii_path)[-1:]))
-        rec_nii_path = rec_nii_path.replace('ADNIRawData', 'ADNIRecData')
+        rec_nii_path = nii_path.replace('ADNIRawData', 'ADNIRecData')
         os.makedirs(''.join(os.path.split(rec_nii_path)[:-1]), exist_ok=True)
         nib.save(rec_nii, rec_nii_path)
 
-        print(f'Reconstruction of {nii_path} is complete.')
-        print(f'Saved to {rec_nii_path}.')
+        logger.info(f'Reconstruction of {nii_path} is complete.')
+        logger.info(f'Saved to {rec_nii_path}.')
 
 
 def main():
