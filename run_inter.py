@@ -41,6 +41,8 @@ parser.add_argument('--train-tsv-path', metavar='/path/to/training_data', defaul
 parser.add_argument('--val-tsv-path', metavar='/path/to/validation_data', default="./val_participants.tsv", type=str)
 parser.add_argument('--test-tsv-path', metavar='/path/to/test_data', default="./test_participants.tsv", type=str)
 parser.add_argument('--data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIRawData', type=str)
+parser.add_argument('--rec-data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIRecData', type=str)
+parser.add_argument('--use-rec-data', action='store_true', help='whether to use recon data to train')
 parser.add_argument('--train-obj-limit', type=int, default=20, help='number of objects in training set')
 parser.add_argument('--val-obj-limit', type=int, default=5, help='number of objects in val set')
 parser.add_argument('--test-obj-limit', type=int, default=20, help='number of objects in test set')
@@ -104,13 +106,13 @@ def solvers(args):
     # data
     inter_thick_v_ds_kwargs.update({'dim': 1})
     train_set_1 = get_volume_datasets(args.train_tsv_path,
-                                    args.data_path,
+                                    args.rec_data_path if args.use_rec_data else args.data_path,
                                     InterPretrainThickVolumeDataset,
                                     inter_thick_v_ds_kwargs,
                                     sub_limit=args.train_obj_limit)
     inter_thick_v_ds_kwargs.update({'dim': 2})
     train_set_2 = get_volume_datasets(args.train_tsv_path,
-                                    args.data_path,
+                                    args.rec_data_path if args.use_rec_data else args.data_path,
                                     InterPretrainThickVolumeDataset,
                                     inter_thick_v_ds_kwargs,
                                     sub_limit=args.train_obj_limit)
