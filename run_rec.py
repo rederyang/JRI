@@ -37,6 +37,8 @@ parser.add_argument('--train-tsv-path', metavar='/path/to/training_data', defaul
 parser.add_argument('--val-tsv-path', metavar='/path/to/validation_data', default="./val_participants.tsv", type=str)
 parser.add_argument('--test-tsv-path', metavar='/path/to/test_data', default="./test_participants.tsv", type=str)
 parser.add_argument('--data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIRawData', type=str)
+parser.add_argument('--syn-data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIInterData', type=str)
+parser.add_argument('--use-syn-data', action='store_true')
 parser.add_argument('--train-obj-limit', type=int, default=20, help='number of objects in training set')
 parser.add_argument('--val-obj-limit', type=int, default=5, help='number of objects in val set')
 parser.add_argument('--test-obj-limit', type=int, default=20, help='number of objects in test set')
@@ -108,8 +110,8 @@ def solvers(args):
 
     # data
     train_set = get_volume_datasets(args.train_tsv_path,
-                                    args.data_path,
-                                    ReconThickVolumeDataset,
+                                    args.syn_data_path if args.use_syn_data else args.data_path,
+                                    ReconVolumeDataset if args.use_syn_data else ReconThickVolumeDataset,
                                     recon_thick_v_ds_kwargs,
                                     sub_limit=args.train_obj_limit)
     val_set = get_volume_datasets(args.val_tsv_path,
