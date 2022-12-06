@@ -19,6 +19,9 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
         self.network_i = du_recurrent_model.IRNet(self.args)
         self.network_i.initialize()
 
+        # self.network_k = unet.KUnet()
+        # self.network_i = unet.IUnet()
+
         self.optimizer = torch.optim.Adam(list(self.network_k.parameters()) +
                                           list(self.network_i.parameters()),
                                           lr=self.args.lr)

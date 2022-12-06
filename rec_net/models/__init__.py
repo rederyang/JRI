@@ -1,4 +1,5 @@
 from rec_net.models import du_recurrent_model
+from rec_net.models import unet
 
 
 def create_model(opts):
