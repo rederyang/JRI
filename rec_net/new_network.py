@@ -94,9 +94,16 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
         )
 
         # some loss term based on the above (like diff loss)
-        diff = (output_k - fft2_tensor(output_i)) * (1 - self.mask_omega[self.unsupervised_idx])
-        diff_loss = self.criterion(diff, torch.zeros_like(diff))
-        loss_unsup = loss_k_branch + loss_i_branch + 0.01 * diff_loss
+        if self.args.unsym_loss:
+            diff_1 = (output_k.detach() - fft2_tensor(output_i)) * (1 - self.mask_omega[self.unsupervised_idx])
+            diff_loss_1 = self.criterion(diff_1, torch.zeros_like(diff_1))
+            diff_2 = (ifft2_tensor(output_k) - output_i.detach())
+            diff_loss_2 = nn.MSELoss()(diff_2, torch.zeros_like(diff_2))
+            loss_unsup = loss_k_branch + loss_i_branch + 0.01 * diff_loss_1 + 0.01 * diff_loss_2
+        else:
+            diff = (output_k - fft2_tensor(output_i)) * (1 - self.mask_omega[self.unsupervised_idx])
+            diff_loss = self.criterion(diff, torch.zeros_like(diff))
+            loss_unsup = loss_k_branch + loss_i_branch + 0.01 * diff_loss
 
         return loss_unsup
 
