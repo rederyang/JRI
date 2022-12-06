@@ -227,7 +227,7 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
 
 class SemisupervisedParallelKINetworkV3Unet(SemisupervisedParallelKINetworkV3):
     def build(self):
-        self.network_k = unet.KUnet(args.)
+        self.network_k = unet.KUnet()
         self.network_i = unet.IUnet()
 
         self.optimizer = torch.optim.Adam(list(self.network_k.parameters()) +
