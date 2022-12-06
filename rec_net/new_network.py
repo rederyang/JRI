@@ -225,6 +225,18 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
         return log
 
 
+class SemisupervisedParallelKINetworkV3Unet(SemisupervisedParallelKINetworkV3):
+    def build(self):
+        self.network_k = unet.KUnet(args.)
+        self.network_i = unet.IUnet()
+
+        self.optimizer = torch.optim.Adam(list(self.network_k.parameters()) +
+                                          list(self.network_i.parameters()),
+                                          lr=self.args.lr)
+
+        self.criterion = nn.MSELoss()
+
+
 class SemisupervisedParallelKINetworkV4(SemisupervisedParallelKINetworkV3):
     """
     Compared to V3,
@@ -372,3 +384,7 @@ class SemisupervisedParallelKINetworkV5(SemisupervisedParallelKINetworkV3):
         loss = loss_omega
 
         return output_i_1, output_i_2, loss
+
+
+V3 = SemisupervisedParallelKINetworkV3
+V3U = SemisupervisedParallelKINetworkV3Unet
