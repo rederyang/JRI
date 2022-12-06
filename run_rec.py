@@ -33,9 +33,12 @@ parser.add_argument('--num-epochs', type=int, default=500, help='maximum number 
 parser.add_argument('--reduce-lr-patience', type=int, default=100000)
 parser.add_argument('--early-stop-patience', type=int, default=100000)
 # parameters related to data and masks
-parser.add_argument('--train-tsv-path', metavar='/path/to/training_data', default="./train_participants.tsv", type=str)
-parser.add_argument('--val-tsv-path', metavar='/path/to/validation_data', default="./val_participants.tsv", type=str)
-parser.add_argument('--test-tsv-path', metavar='/path/to/test_data', default="./test_participants.tsv", type=str)
+parser.add_argument('--train', metavar='/path/to/training_data',
+                    default="./fastMRI_brain_DICOM/t1_t2_paired_6875_train.csv", type=str)
+parser.add_argument('--val', metavar='/path/to/validation_data',
+                    default="./fastMRI_brain_DICOM/t1_t2_paired_6875_val.csv", type=str)
+parser.add_argument('--test', metavar='/path/to/test_data', default="./fastMRI_brain_DICOM/t1_t2_paired_6875_test.csv",
+                    type=str)
 parser.add_argument('--data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIRawData', type=str)
 parser.add_argument('--syn-data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIInterData', type=str)
 parser.add_argument('--use-syn-data', action='store_true')
@@ -49,7 +52,7 @@ parser.add_argument('--s-mask-up-path', type=str, default='./mask/selecting_mask
                     help='selection mask in up network')
 parser.add_argument('--s-mask-down-path', type=str, default='./mask/selecting_mask/mask_2.50x_acs16.mat',
                     help='selection mask in down network')
-# parser.add_argument('--prefetch', action='store_false')
+parser.add_argument('--prefetch', action='store_false')
 # save path
 parser.add_argument('--output-path', type=str, default='./runs/test_run/', help='output path')
 # others
@@ -57,6 +60,12 @@ parser.add_argument('--mode', '-m', type=str, default='train',
                     help='whether training or test model, value should be set to train or test')
 parser.add_argument('--resume', action='store_true', help='whether resume to train')
 parser.add_argument('--save-evaluation-viz', action='store_true')
+parser.add_argument('--supervised-every', type=int, default=4,
+                    help='One supervised subject every how many subjects, to build a semi-supervised dataset')
+parser.add_argument('--supervised-mode', metavar='type', choices=['semi-supervised', 'supervised', 'self-supervised'],
+                    type=str, default='supervised', help='types of learning')
+parser.add_argument('--T-s', type=int, default=1)
+parser.add_argument('--T-us', type=int, default=1)
 
 
 def solvers(args):
@@ -85,12 +94,11 @@ def solvers(args):
         'q': args.drop_rate,
     }
 
+    from utils import get_dataset_split
+    from utils import get_semisupervised_dataset_split
+
     if args.mode == 'test':
-        test_set = get_volume_datasets(args.test_tsv_path,
-                                        args.data_path,
-                                        ReconThickVolumeDataset,
-                                        recon_thick_v_ds_kwargs,
-                                        sub_limit=args.test_obj_limit)
+        test_set = get_dataset_split(args, 'test')
         test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
         logger.info('The size of test dataset is {}.'.format(len(test_set)))
         test_loader = tqdm(test_loader, desc='testing', total=int(len(test_loader)))
@@ -109,19 +117,21 @@ def solvers(args):
         return
 
     # data
-    train_set = get_volume_datasets(args.train_tsv_path,
-                                    args.syn_data_path if args.use_syn_data else args.data_path,
-                                    ReconVolumeDataset if args.use_syn_data else ReconThickVolumeDataset,
-                                    recon_thick_v_ds_kwargs,
-                                    sub_limit=args.train_obj_limit)
-    val_set = get_volume_datasets(args.val_tsv_path,
-                                    args.data_path,
-                                    ReconThickVolumeDataset,
-                                    recon_thick_v_ds_kwargs,
-                                    sub_limit=args.val_obj_limit)
+    semi_train_set, unsup_train_set, sup_train_set = get_semisupervised_dataset_split(args, 'train')
+    if args.supervised_mode == 'supervised':  # only use sup data
+        assert sup_train_set is not None and len(sup_train_set) > 0
+        train_set = sup_train_set
+        train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
+        logger.info('Supervised learning.')
+        logger.info('The size of train dataset is {}.'.format(len(train_set)))
+    elif args.supervised_mode == 'self-supervised':  # only use unsup data
+        assert unsup_train_set is not None and len(unsup_train_set) > 0
+        train_set = unsup_train_set
+        train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
+        logger.info('Self-supervised learning.')
+        logger.info('The size of train dataset is {}.'.format(len(train_set)))
 
-    train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
-    logger.info('The size of train dataset is {}.'.format(len(train_set)))
+    val_set = get_dataset_split(args, 'val')
     val_loader = DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
     logger.info('The size of val dataset is {}.'.format(len(val_set)))
 

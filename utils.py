@@ -240,6 +240,7 @@ class SemisupervisedConcatDatasetV2(torch.utils.data.ConcatDataset):
     def get_unsupervised_idxs(self):
         return self.unsupervised_idx
 
+from paired_dataset import get_paired_volume_datasets
 
 def get_semisupervised_dataset_split(args, split):
     volumes, unsupervised_volumes, supervised_volumes = get_paired_volume_datasets(
