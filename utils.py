@@ -112,6 +112,49 @@ class Prefetch(torch.utils.data.Dataset):
         return self.dataset[ind]
 
 
+
+class AverageMeter(object):
+    """
+    Computes and stores the average and current value
+    Copied from: https://github.com/pytorch/examples/blob/master/imagenet/main.py
+    """
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+
+def dict2line(log: dict):
+    to_join = list()
+    for k in log:
+        if 'epoch' in k:
+            to_join.append(f'{k}:{log[k]}')
+        if 'time' in k:
+            to_join.append(f'{k}:{log[k]:.2f}s')
+        if 'lr' in k:
+            to_join.append(f'{k}:{log[k]:.1e}')
+        if 'loss' in k:
+            to_join.append(f'{k}:{log[k]:.2e}')
+        if 'psnr' in k:
+            to_join.append(f'{k}:{log[k]:.3f}')
+        if 'ssim' in k:
+            to_join.append(f'{k}:{log[k]:.5f}')
+
+    line = ' | '.join(to_join)
+
+    return line
+
+
 def get_dataset(args):
     volumes_train = get_paired_volume_datasets(
             args.train, crop=256, protocals=['T2'],

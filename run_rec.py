@@ -7,10 +7,11 @@ import random
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 # Custom
 from rec_net import make_model
 from data import *
-from utils import create_logger
+from utils import create_logger, dict2line
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
@@ -61,6 +62,7 @@ parser.add_argument('--save-evaluation-viz', action='store_true')
 
 def solvers(args):
     # logger and devices
+    writer = SummaryWriter(log_dir=args.output_path)
     logger = create_logger(args)
 
     logger.info(args)
@@ -97,14 +99,7 @@ def solvers(args):
 
         # run one epoch
         test_log = model.test_one_epoch(test_loader)
-
-        # log
-        logger.info(f'time:{test_log["time"]:.5f}s\t'
-                    f'test_loss:{test_log["loss"]:.7f}\t'
-                    f'test_psnr1:{test_log["psnr1"]:.7f}\t'
-                    f'test_psnr2:{test_log["psnr2"]:.5f}\t'
-                    f'test_ssim1:{test_log["ssim1"]:.7f}\t'
-                    f'test_ssim2:{test_log["ssim2"]:.5f}\t')
+        logger.info(dict2line(test_log))
 
         return
 
@@ -130,19 +125,15 @@ def solvers(args):
         # data and run one epoch
         train_loader = tqdm(train_loader, desc='training', total=int(len(train_loader)))
         train_log = model.train_one_epoch(train_loader)
+        logger.info(dict2line(train_log))
+        for k in filter(lambda x: 'train' in x, train_log.keys()):
+            writer.add_scalar('train/'+k, train_log[k], train_log['epoch'])
+
         val_loader = tqdm(val_loader, desc='valing', total=int(len(val_loader)))
         val_log = model.eval_one_epoch(val_loader)
-
-        # output log
-        logger.info(f'epoch:{train_log["epoch"]:<8d}\t'
-                    f'time:{train_log["time"]:.2f}s\t'
-                    f'lr:{train_log["lr"]:.8f}\t'
-                    f'train_loss:{train_log["loss"]:.7f}\t'
-                    f'val_loss:{val_log["loss"]:.7f}\t'
-                    f'val_psnr1:{val_log["psnr1"]:.5f}\t'
-                    f'val_psnr2:{val_log["psnr2"]:.5f}\t'
-                    f'val_ssim1:{val_log["ssim1"]:.5f}\t'
-                    f'val_ssim2:{val_log["ssim2"]:.5f}\t')
+        logger.info(dict2line(val_log))
+        for k in filter(lambda x: 'val' in x, val_log.keys()):
+            writer.add_scalar('val/'+k, val_log[k], val_log['epoch'])
 
         if model.signal_to_stop:
             logger.info('The experiment is early stop!')

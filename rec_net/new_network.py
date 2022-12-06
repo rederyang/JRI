@@ -28,6 +28,35 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
 
         self.criterion = nn.MSELoss()
 
+    def attach_meters(self):
+
+        self.unsup_train_network_k_loss_meter = AverageMeter()
+        self.unsup_train_network_i_loss_meter = AverageMeter()
+        self.unsup_train_aux_loss_meter = AverageMeter()
+        self.unsup_train_loss_meter = AverageMeter()
+
+        self.sup_train_network_k_loss_meter = AverageMeter()
+        self.sup_train_network_i_loss_meter = AverageMeter()
+        self.sup_train_loss_meter = AverageMeter()
+
+        self.train_loss_meter = AverageMeter()
+
+        # self.train_image_1_psnr_meter = AverageMeter()
+        # self.train_image_2_psnr_meter = AverageMeter()
+        # self.train_image_1_ssim_meter = AverageMeter()
+        # self.train_image_2_ssim_meter = AverageMeter()
+
+        self.val_network_k_loss_meter = AverageMeter()
+        self.val_network_i_loss_meter = AverageMeter()
+        # self.val_aux_loss_meter = AverageMeter()
+
+        self.val_loss_meter = AverageMeter()
+
+        self.val_image_1_psnr_meter = AverageMeter()
+        self.val_image_2_psnr_meter = AverageMeter()
+        self.val_image_1_ssim_meter = AverageMeter()
+        self.val_image_2_ssim_meter = AverageMeter()
+
     def set_input(self, mode, data_batch):
         """
         all shape == [bs, 2, x, y]
@@ -78,6 +107,10 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
 
         loss_sup = loss_k_branch + loss_i_branch
 
+        self.sup_train_network_k_loss_meter.update(loss_k_branch.item())
+        self.sup_train_network_i_loss_meter.update(loss_i_branch.item())
+        self.sup_train_loss_meter.update(loss_sup.item())
+
         return loss_sup
 
     def unsup_train_forward(self):
@@ -98,8 +131,13 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
 
         # some loss term based on the above (like diff loss)
         diff = (output_k - fft2_tensor(output_i)) * (1 - self.mask_omega[self.unsupervised_idx])
-        diff_loss = self.criterion(diff, torch.zeros_like(diff))
-        loss_unsup = loss_k_branch + loss_i_branch + 0.01 * diff_loss
+        diff_loss = 0.01 * self.criterion(diff, torch.zeros_like(diff))
+        loss_unsup = loss_k_branch + loss_i_branch + diff_loss
+
+        self.unsup_train_network_k_loss_meter.update(loss_k_branch.item())
+        self.unsup_train_network_i_loss_meter.update(loss_i_branch.item())
+        self.unsup_train_aux_loss_meter.update(diff_loss.item())
+        self.unsup_train_loss_meter.update(loss_unsup.item())
 
         return loss_unsup
 
@@ -116,6 +154,8 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
 
         loss = loss_sup + loss_unsup
 
+        self.train_loss_meter.update(loss.item())
+
         return loss
 
     def update(self):
@@ -123,8 +163,6 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
-        return loss
 
     def inference(self):
         output_k, loss_k_branch = self.network_k.forward(
@@ -144,10 +182,12 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
 
         loss = loss_k_branch + loss_i_branch
 
-        output_i_1 = ifft2_tensor(output_k)
-        output_i_2 = output_i
+        self.val_network_k_loss_meter.update(loss_k_branch.item())
+        self.val_network_i_loss_meter.update(loss_i_branch.item())
+        self.val_loss_meter.update(loss.item())
 
-        return output_i_1, output_i_2, loss
+        self.output_i_1 = ifft2_tensor(output_k)
+        self.output_i_2 = output_i
 
     def post_evaluation(self):
         # get magnitude images
@@ -164,6 +204,11 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
         psnr_2 = psnr_slice(img_full, output_i_2)
         ssim_2 = ssim_slice(img_full, output_i_2)
 
+        self.val_image_1_psnr_meter.update(psnr_1)
+        self.val_image_2_psnr_meter.update(psnr_2)
+        self.val_image_1_ssim_meter.update(ssim_1)
+        self.val_image_2_ssim_meter.update(ssim_2)
+
         if self.save_test_vis:
             if not hasattr(self, 'cnt'):
                 self.cnt = 0
@@ -175,52 +220,29 @@ class SemisupervisedParallelKINetworkV3(BaseModel):
             plt.imsave(os.path.join(self.args.output_path, f'img_output2_{self.cnt}.png'), output_i_2.cpu()[0], cmap='gray')
             plt.imsave(os.path.join(self.args.output_path, f'img_diff2_{self.cnt}.png'), img_diff_2.cpu()[0], cmap='bwr', vmin=-0.3, vmax=0.3)
 
-        return psnr_1, psnr_2, ssim_1, ssim_2
-
     def run_one_epoch(self, mode, dataloader):
 
         assert mode in ['train', 'val', 'test']
 
+        self.reset_meters()
+
         tik = time.time()
-
-        loss, psnr_1, psnr_2, ssim_1, ssim_2 = 0.0, 0.0, 0.0, 0., 0.
-
         for iter_num, data_batch in enumerate(dataloader):
-
             self.set_input(mode, data_batch)
-
             if mode == 'train':
-                batch_loss = self.update()
+                self.update()
+                # no post_evaluation
             else:
-                self.output_i_1, self.output_i_2, batch_loss = self.inference()
-                _psnr_1, _psnr_2, _ssim_1, _ssim_2 = self.post_evaluation()
-                psnr_1 += _psnr_1
-                psnr_2 += _psnr_2
-                ssim_1 += _ssim_1
-                ssim_2 += _ssim_2
-
-            loss += batch_loss.item()
-
-        loss /= len(dataloader)
+                self.inference()
+                self.post_evaluation()
+        tok = time.time()
 
         log = dict()
         log['epoch'] = self.epoch
-        log['loss'] = loss
+        log['time'] = tok - tik
         if mode == 'train':
             log['lr'] = self.optimizer.param_groups[0]['lr']
-        else:
-            psnr_1 /= len(dataloader)
-            ssim_1 /= len(dataloader)
-            psnr_2 /= len(dataloader)
-            ssim_2 /= len(dataloader)
-            log['psnr1'] = psnr_1
-            log['psnr2'] = psnr_2
-            log['ssim1'] = ssim_1
-            log['ssim2'] = ssim_2
-
-        tok = time.time()
-
-        log['time'] = tok - tik
+        log.update(self.summarize_meters())
 
         return log
 

@@ -15,7 +15,7 @@ class BaseModel(nn.Module):
         self.rank = rank
 
         self.epoch = 0
-        self.target_metric = 'ssim2'
+        self.target_metric = 'val_image_2_ssim'
         self.best_target_metric = -1.
 
         self.save_every = 1
@@ -25,6 +25,8 @@ class BaseModel(nn.Module):
 
         self.build()
 
+        self.attach_meters()
+
         self.attach_callbacks()
 
         self.save_test_vis = self.args.save_evaluation_viz
@@ -32,6 +34,25 @@ class BaseModel(nn.Module):
     def build(self):
         """model, optimizer, criterion"""
         raise NotImplementedError
+
+    def attach_meters(self):
+        raise NotImplementedError
+
+    def reset_meters(self):
+        for meter_name in filter(lambda x: x.endswith('_meter'), self.__dict__.keys()):
+            meter = getattr(self, meter_name)
+            meter.reset()
+
+    def summarize_meters(self, reduce=True) -> dict:
+        log = dict()
+
+        for meter_name in filter(lambda x: x.endswith('_meter'), self.__dict__.keys()):
+            meter = getattr(self, meter_name)
+            metric_name = meter_name.replace('_meter', '')
+            if meter.count > 0: # this meter is used
+                log[metric_name] = meter.avg
+
+        return log
 
     def attach_callbacks(self):
         # callbacks
