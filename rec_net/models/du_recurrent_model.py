@@ -5,7 +5,7 @@ import torch.utils.data
 from rec_net.networks import get_generator
 from rec_net.networks.networks import gaussian_weights_init
 from rec_net.models.utils import DataConsistencyInKspace_I, DataConsistencyInKspace_K, fft2
-from mri_tools import fft2_tensor
+from mri_tools import fft2_tensor, ifft2_tensor
 
 
 class RecurrentModel(nn.Module):
@@ -254,7 +254,7 @@ class KRNet(nn.Module):
         self.net_G = get_generator(opts.net_G, opts)
         self.networks.append(self.net_G)
 
-        self.criterion = nn.L1Loss()
+        self.criterion = nn.MSELoss()
 
         # data consistency layers in image space & k-space
         dcs_K = []
@@ -280,7 +280,7 @@ class KRNet(nn.Module):
 
         loss_kspc = 0
         for j in range(1, self.n_recurrent + 1):
-            loss_kspc = loss_kspc + self.criterion(net['r%d_kspc_pred' % j] * mask_omega, k_omega)
+            loss_kspc = loss_kspc + self.criterion(ifft2_tensor(net['r%d_kspc_pred' % j] * mask_omega), ifft2_tensor(k_omega))
 
         return K, loss_kspc
 
