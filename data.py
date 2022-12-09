@@ -95,7 +95,11 @@ class VolumeDataset(torch.utils.data.Dataset):
 
         array = array / np.max(array)  # normalization
 
-        array = pad_np(array, pad)
+        if crop is not None:
+            array = crop_np(array, crop)
+
+        if pad is not None:
+            array = pad_np(array, pad)
 
         # array = array.astype(np.complex64)
 
@@ -236,10 +240,35 @@ class InterInferenceThickVolumeDataset(ThickVolumeDataset):
         return input_slice_1, input_slice_2, target_slice
 
 
+class JointTrainThickVolumeDataset(ThickVolumeDataset):
+    def __init__(self, mask_omega_path, mask_subset_1_path, mask_subset_2_path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.thick_array = self.thick_array.type(torch.complex64)
+        self.mask_under = np.array(sio.loadmat(mask_omega_path)['mask'])
+        self.mask_under = np.stack((self.mask_under, self.mask_under), axis=-1)
+        self.mask_omega = torch.from_numpy(self.mask_under).float()
+
+    def __len__(self):
+        return self.end - self.start - 2
+
+    def __getitem__(self, index):
+        slice_1 = torch.index_select(self.thick_array, 3,
+                                           torch.tensor([index + self.start])).squeeze(dim=3)
+        slice_3 = torch.index_select(self.thick_array, 3,
+                                           torch.tensor([index + self.start + 1])).squeeze(dim=3)
+        slice_5 = torch.index_select(self.thick_array, 3,
+                                           torch.tensor([index + self.start + 2])).squeeze(dim=3)
+
+        return slice_1, slice_3, slice_5, self.mask_omega
+
 class JointInferenceThickVolumeDataset(ThickVolumeDataset):
     def __init__(self, mask_omega_path, mask_subset_1_path, mask_subset_2_path, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mask_omega = torch.from_numpy(np.array(sio.loadmat(mask_omega_path)['mask']))[None, ...]
+        self.array = self.array.type(torch.complex64)
+        self.thick_array = self.thick_array.type(torch.complex64)
+        self.mask_under = np.array(sio.loadmat(mask_omega_path)['mask'])
+        self.mask_under = np.stack((self.mask_under, self.mask_under), axis=-1)
+        self.mask_omega = torch.from_numpy(self.mask_under).float()
 
     def __len__(self):
         return self.end - self.start - 1

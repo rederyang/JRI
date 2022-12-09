@@ -339,6 +339,9 @@ class IRNet(nn.Module):
     def forward(self, *args, **kwargs):
         return self.forward_i(*args, **kwargs)
 
+    def recon(self, img_und, k_und, mask):
+        return self.forward_i(img_und, k_und, mask, torch.zeros_like(k_und), torch.zeros_like(k_und))[0]
+
 
 class OriginalRecurrentModel(nn.Module):
     def __init__(self, opts):

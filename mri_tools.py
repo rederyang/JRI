@@ -142,3 +142,16 @@ def rAtA(data, mask):
     data = ifft2(data)
     data = data[..., 0].unsqueeze(-1)
     return data
+
+
+def complex2real_tensor(data):
+    """
+    [bs, 1, x, y] complex to [bs, 2, x, y] float
+    """
+    return torch.view_as_real(data[:, 0]).permute(0, 3, 1, 2).contiguous()
+
+def real2complex_tensor(data):
+    """
+    [bs, 2, x, y] float to [bs, 1, x, y] complex
+    """
+    return torch.view_as_complex(data.permute(0, 2, 3, 1).contiguous())[:, None, ...]
