@@ -15,7 +15,7 @@ class BaseModel(nn.Module):
         self.rank = rank
 
         self.epoch = 0
-        self.target_metric = 'val_image_2_ssim' # TODO
+        self.target_metric = 'val_inter_image_ssim'
         self.best_target_metric = -1.
 
         self.save_every = 1
@@ -150,7 +150,7 @@ class BaseModel(nn.Module):
             self.signal_to_stop = True
 
         # reduce on plateau
-        self.scheduler_re.step(log[self.target_metric])  # reduce on plateau
+        # self.scheduler_re.step(log[self.target_metric])  # reduce on plateau
 
     def test_one_epoch(self, dataloader):
         self.eval()
@@ -162,7 +162,7 @@ class BaseModel(nn.Module):
         # save checkpoint
         checkpoint = {
             'epoch': self.epoch,
-            'optimizer': self.optimizer.state_dict(),
+            # 'optimizer': self.optimizer.state_dict(),
             'best_metric': self.best_target_metric,
             'model': self.state_dict()
         }
@@ -180,7 +180,7 @@ class BaseModel(nn.Module):
         assert os.path.isfile(model_path)
         checkpoint = torch.load(model_path, map_location='cuda:{}'.format(self.rank))
         self.epoch = checkpoint['epoch']
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        # self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.best_target_metric = checkpoint['best_metric']
         self.load_state_dict(checkpoint['model'])
 

@@ -24,17 +24,17 @@ parser.add_argument('--rec-model', type=str, required=True, help='type of model'
 parser.add_argument('--use-init-weights', '-uit', type=bool, default=True,
                     help='whether initialize model weights with defined types')
 parser.add_argument('--net_G', type=str, default='DRDN', help='generator network')  # DRDN / SCNN
-parser.add_argument('--n_recurrent', type=int, default=2, help='Number of reccurent block in model')
+parser.add_argument('--n_recurrent', type=int, default=1, help='Number of reccurent block in model')
 parser.add_argument('--use_prior', default=False, action='store_true', help='use prior')  # True / False
 parser.add_argument('--rec-model-ckpt-path', type=str, required=True)
 # model setting for inter_model
 parser.add_argument('--inter-model', type=str, default='TSCNet', help='type of model')
 parser.add_argument('--gpu_ids', type=int, nargs='+', default=[0], help='list of gpu ids')
 parser.add_argument('--c-in', type=int, default=1)
-parser.add_argument('--c-feat', type=int, default=64)  # 32
-parser.add_argument('--blocks', type=int, default=3)  # 3
-parser.add_argument('--layers', type=int, default=5)  # 3
-parser.add_argument('--grow-rate', type=int, default=64)  # 32
+parser.add_argument('--c-feat', type=int, default=32)  # 32
+parser.add_argument('--blocks', type=int, default=1)  # 3
+parser.add_argument('--layers', type=int, default=1)  # 3
+parser.add_argument('--grow-rate', type=int, default=32)  # 32
 parser.add_argument('--adv-weight', type=float, default=0.1, help='adversarial training loss weight')
 parser.add_argument('--inter-model-ckpt-path', type=str, required=True)
 # learning rate, batch size, and etc
@@ -85,11 +85,11 @@ def solvers(args):
 
     # rec model
     rec_model = make_rec_model(0, args, model_name=args.rec_model)
-    rec_model.load(args.rec_model_ckpt_path)
-    rec_model.cuda()
+    # rec_model.load(args.rec_model_ckpt_path)
+    rec_model.network_i.cuda()
     # inter model
     inter_model = make_inter_model(0, args, model_name=args.inter_model)
-    inter_model.load(args.inter_model_ckpt_path)
+    # inter_model.load(args.inter_model_ckpt_path)
     inter_model.cuda()
     # joint model
     model = JRI(0, args)

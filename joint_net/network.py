@@ -58,6 +58,11 @@ class JointReconInterModel(BaseModel):
         else:
             self.slice_1, self.slice_2, self.slice_3, self.mask_omega = data_batch
 
+            self.slice_1 = torch.view_as_real(self.slice_1[:, 0].to(self.rank, non_blocking=True)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
+            self.slice_2 = torch.view_as_real(self.slice_2[:, 0].to(self.rank, non_blocking=True)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
+            self.slice_3 = torch.view_as_real(self.slice_3[:, 0].to(self.rank, non_blocking=True)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
+            self.mask_omega = self.mask_omega.to(self.rank, non_blocking=True).permute(0, 3, 1, 2).contiguous()
+
             self.slice_1_k_omega = fft2_tensor(self.slice_1) * self.mask_omega
             self.slice_2_k_omega = fft2_tensor(self.slice_2) * self.mask_omega
             self.slice_3_k_omega = fft2_tensor(self.slice_3) * self.mask_omega
@@ -215,7 +220,8 @@ class JointReconInterModel(BaseModel):
         log['epoch'] = self.epoch
         log['time'] = tok - tik
         if mode == 'train':
-            log['lr'] = self.optimizer.param_groups[0]['lr']
+            log['rec_lr'] = self.rec_model_optimizer.param_groups[0]['lr']
+            log['inter_lr'] = self.inter_model_optimizer.param_groups[0]['lr']
         log.update(self.summarize_meters())
 
         return log
