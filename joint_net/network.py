@@ -87,26 +87,29 @@ class JointReconInterModel(BaseModel):
         self.slice_2_img_inter = self.inter_model.recon(self.slice_1_img_rec, self.slice_3_img_rec)
         self.slice_4_img_inter = self.inter_model.recon(self.slice_3_img_rec, self.slice_5_img_rec)
 
-        # to complex, to real form
-        self.slice_2_img_inter = complex2real_tensor(self.slice_2_img_inter.type(torch.complex64))
-        self.slice_4_img_inter = complex2real_tensor(self.slice_4_img_inter.type(torch.complex64))
-
-        # 2nd order under-sampling
-        self.slice_2_k_omega = fft2_tensor(self.slice_2_img_inter) * self.mask_omega
-        self.slice_4_k_omega = fft2_tensor(self.slice_4_img_inter) * self.mask_omega
-        self.slice_2_img_omega = ifft2_tensor(self.slice_2_k_omega)
-        self.slice_4_img_omega = ifft2_tensor(self.slice_4_k_omega)
-
-        # 2nd order recon
-        self.slice_2_img_rec = self.rec_model.recon(self.slice_2_img_omega, self.slice_2_img_omega, self.mask_omega)
-        self.slice_4_img_rec = self.rec_model.recon(self.slice_4_img_omega, self.slice_4_img_omega, self.mask_omega)
-
-        # to real, abs
-        self.slice_2_img_rec = torch.abs(real2complex_tensor(self.slice_2_img_rec))
-        self.slice_4_img_rec = torch.abs(real2complex_tensor(self.slice_4_img_rec))
+        # # to complex, to real form
+        # self.slice_2_img_inter = complex2real_tensor(self.slice_2_img_inter.type(torch.complex64))
+        # self.slice_4_img_inter = complex2real_tensor(self.slice_4_img_inter.type(torch.complex64))
+        #
+        # # 2nd order under-sampling
+        # self.slice_2_k_omega = fft2_tensor(self.slice_2_img_inter) * self.mask_omega
+        # self.slice_4_k_omega = fft2_tensor(self.slice_4_img_inter) * self.mask_omega
+        # self.slice_2_img_omega = ifft2_tensor(self.slice_2_k_omega)
+        # self.slice_4_img_omega = ifft2_tensor(self.slice_4_k_omega)
+        #
+        # # 2nd order recon
+        # self.slice_2_img_rec = self.rec_model.recon(self.slice_2_img_omega, self.slice_2_img_omega, self.mask_omega)
+        # self.slice_4_img_rec = self.rec_model.recon(self.slice_4_img_omega, self.slice_4_img_omega, self.mask_omega)
+        #
+        # # to real, abs
+        # self.slice_2_img_rec = torch.abs(real2complex_tensor(self.slice_2_img_rec))
+        # self.slice_4_img_rec = torch.abs(real2complex_tensor(self.slice_4_img_rec))
+        #
+        # # 2nd order inter
+        # self.slice_3_img_inter = self.inter_model.recon(self.slice_2_img_rec, self.slice_4_img_rec)
 
         # 2nd order inter
-        self.slice_3_img_inter = self.inter_model.recon(self.slice_2_img_rec, self.slice_4_img_rec)
+        self.slice_3_img_inter = self.inter_model.recon(self.slice_2_img_inter, self.slice_4_img_inter)
 
         # to complex, to real form
         self.slice_3_img_inter = complex2real_tensor(self.slice_3_img_inter.type(torch.complex64))
@@ -114,9 +117,7 @@ class JointReconInterModel(BaseModel):
         alpha1 = 1
         alpha2 = 1
 
-        slice_3_k_inter = fft2_tensor(self.slice_3_img_inter)
-        slice_3_k_omega = fft2_tensor(self.slice_3_img_omega)
-        slice_3_k_diff_inter_omega = (slice_3_k_inter - slice_3_k_omega) * self.mask_omega
+        slice_3_k_diff_inter_omega = (fft2_tensor(self.slice_3_img_inter) - self.slice_3_k_omega) * self.mask_omega
         loss_omega = self.kspace_criterion(slice_3_k_diff_inter_omega, torch.zeros_like(slice_3_k_diff_inter_omega))
         loss_omega = loss_omega * alpha1
 
