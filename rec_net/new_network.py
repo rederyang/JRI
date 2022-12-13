@@ -408,5 +408,101 @@ class SemisupervisedParallelKINetworkV5(SemisupervisedParallelKINetworkV3):
         return output_i_1, output_i_2, loss
 
 
+class SemisupervisedKNetworkV3(SemisupervisedParallelKINetworkV3):
+    def build(self):
+        self.network_k = du_recurrent_model.KRNet(self.args)
+        self.network_k.initialize()
+
+        self.optimizer = torch.optim.Adam(list(self.network_k.parameters()),
+                                          lr=self.args.lr)
+
+        self.criterion = nn.MSELoss()
+
+    def sup_train_forward(self):
+        output_k, loss_k_branch = self.network_k.forward(
+            self.img_omega[self.supervised_idx],
+            self.k_omega[self.supervised_idx],
+            self.mask_omega[self.supervised_idx],
+            self.k_full[self.supervised_idx],
+            torch.ones_like(self.mask_omega[self.supervised_idx])
+        )
+
+        loss_sup = loss_k_branch
+
+        self.sup_train_network_k_loss_meter.update(loss_k_branch.item())
+        self.sup_train_loss_meter.update(loss_sup.item())
+
+        return loss_sup
+
+    def unsup_train_forward(self):
+        raise NotImplementedError
+
+    def inference(self):
+        output_k, loss_k_branch = self.network_k.forward(
+            self.img_omega,
+            self.k_omega,
+            self.mask_omega,
+            self.k_full,
+            torch.ones_like(self.k_full)
+        )
+
+        loss = loss_k_branch
+
+        self.val_network_k_loss_meter.update(loss_k_branch.item())
+        self.val_loss_meter.update(loss.item())
+
+        self.output_i_1 = ifft2_tensor(output_k)
+        self.output_i_2 = ifft2_tensor(output_k)
+
+
+class SemisupervisedINetworkV3(SemisupervisedParallelKINetworkV3):
+    def build(self):
+        self.network_i = du_recurrent_model.IRNet(self.args)
+        self.network_i.initialize()
+
+        self.optimizer = torch.optim.Adam(list(self.network_i.parameters()),
+                                          lr=self.args.lr)
+
+        self.criterion = nn.MSELoss()
+
+    def sup_train_forward(self):
+        output_i, loss_i_branch = self.network_i.forward(
+            self.img_omega[self.supervised_idx],
+            self.k_omega[self.supervised_idx],
+            self.mask_omega[self.supervised_idx],
+            self.k_full[self.supervised_idx],
+            torch.ones_like(self.mask_omega[self.supervised_idx])
+        )
+
+        loss_sup = loss_i_branch
+
+        self.sup_train_network_i_loss_meter.update(loss_i_branch.item())
+        self.sup_train_loss_meter.update(loss_sup.item())
+
+        return loss_sup
+
+    def unsup_train_forward(self):
+        raise NotImplementedError
+
+    def inference(self):
+        output_i, loss_i_branch = self.network_i.forward(
+            self.img_omega,
+            self.k_omega,
+            self.mask_omega,
+            self.k_full,
+            torch.ones_like(self.k_full)
+        )
+
+        loss = loss_i_branch
+
+        self.val_network_i_loss_meter.update(loss_i_branch.item())
+        self.val_loss_meter.update(loss.item())
+
+        self.output_i_1 = output_i
+        self.output_i_2 = output_i
+
+
 V3 = SemisupervisedParallelKINetworkV3
 V3U = SemisupervisedParallelKINetworkV3Unet
+KV3 = SemisupervisedKNetworkV3
+IV3 = SemisupervisedINetworkV3
