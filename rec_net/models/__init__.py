@@ -1,5 +1,6 @@
 from rec_net.models import du_recurrent_model
 from rec_net.models import unet
+from rec_net.models import kiki
 
 
 def create_model(opts):
