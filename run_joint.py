@@ -26,7 +26,7 @@ parser.add_argument('--use-init-weights', '-uit', type=bool, default=True,
 parser.add_argument('--net_G', type=str, default='DRDN', help='generator network')  # DRDN / SCNN
 parser.add_argument('--n_recurrent', type=int, default=2, help='Number of reccurent block in model')
 parser.add_argument('--use_prior', default=False, action='store_true', help='use prior')  # True / False
-parser.add_argument('--rec-model-ckpt-path', type=str, required=True)
+parser.add_argument('--rec-model-ckpt-path', type=str)
 # model setting for inter_model
 parser.add_argument('--inter-model', type=str, default='TSCNet', help='type of model')
 parser.add_argument('--gpu_ids', type=int, nargs='+', default=[0], help='list of gpu ids')
@@ -36,11 +36,12 @@ parser.add_argument('--blocks', type=int, default=3)  # 3
 parser.add_argument('--layers', type=int, default=5)  # 3
 parser.add_argument('--grow-rate', type=int, default=64)  # 32
 parser.add_argument('--adv-weight', type=float, default=0.1, help='adversarial training loss weight')
-parser.add_argument('--inter-model-ckpt-path', type=str, required=True)
+parser.add_argument('--inter-model-ckpt-path', type=str)
 # learning rate, batch size, and etc
 parser.add_argument('--seed', type=int, default=30, help='random seed number')
 parser.add_argument('--lr', type=float, default=0, help='initial learning rate')
 parser.add_argument('--rec-lr', type=float, default=1e-4, help='initial learning rate')
+parser.add_argument('--rec-lr-2', type=float, default=1e-4, help='initial learning rate')
 parser.add_argument('--inter-lr', type=float, default=1e-4, help='initial learning rate')
 parser.add_argument('--batch-size', type=int, default=1, help='batch size of single gpu')
 parser.add_argument('--num-workers', type=int, default=8, help='number of workers')
@@ -56,10 +57,10 @@ parser.add_argument('--test-tsv-path', metavar='/path/to/test_data', default="./
 parser.add_argument('--data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIRawData', type=str)
 parser.add_argument('--syn-data-path', metavar='/path/to/data', default='/mnt/d/data/ADNI/ADNIInterData', type=str)
 parser.add_argument('--use-syn-data', action='store_true')
-parser.add_argument('--train-obj-limit', type=int, default=20, help='number of objects in training set')
+parser.add_argument('--train-obj-limit', type=int, default=5, help='number of objects in training set')
 parser.add_argument('--val-obj-limit', type=int, default=5, help='number of objects in val set')
-parser.add_argument('--test-obj-limit', type=int, default=20, help='number of objects in test set')
-parser.add_argument('--drop-rate', type=float, default=0.2, help='ratio to drop edge slices')
+parser.add_argument('--test-obj-limit', type=int, default=5, help='number of objects in test set')
+parser.add_argument('--drop-rate', type=float, default=0.4, help='ratio to drop edge slices')
 parser.add_argument('--u-mask-path', type=str, default='./mask/undersampling_mask/mask_8.00x_acs24.mat',
                     help='undersampling mask')
 parser.add_argument('--s-mask-up-path', type=str, default='./mask/selecting_mask/mask_2.00x_acs16.mat',
@@ -74,6 +75,12 @@ parser.add_argument('--mode', '-m', type=str, default='train',
                     help='whether training or test model, value should be set to train or test')
 parser.add_argument('--resume', action='store_true', help='whether resume to train')
 parser.add_argument('--save-evaluation-viz', action='store_true')
+# semi-supervised learning
+parser.add_argument('--sup-every', type=int, default=2)
+parser.add_argument('--rec-sup-weight', type=float, default=1.0)
+parser.add_argument('--rec-unsup-weight', type=float, default=0.1)
+parser.add_argument('--inter-sup-weight', type=float, default=1.0)
+parser.add_argument('--inter-unsup-weight', type=float, default=0.1)
 
 
 def solvers(args):
@@ -85,71 +92,85 @@ def solvers(args):
 
     # rec model
     rec_model = make_rec_model(0, args, model_name=args.rec_model)
-    rec_model.load(args.rec_model_ckpt_path)
-    rec_model.network_i.cuda()
+    rec_model_2 = make_rec_model(0, args, model_name=args.rec_model)
+    # if args.rec_model_ckpt_path is not None:
+    #     rec_model.load(args.rec_model_ckpt_path)
     # inter model
     inter_model = make_inter_model(0, args, model_name=args.inter_model)
-    inter_model.load(args.inter_model_ckpt_path)
-    inter_model.cuda()
+    # if args.inter_model_ckpt_path is not None:
+    #     inter_model.load(args.inter_model_ckpt_path)
     # joint model
     model = JRI(0, args)
-    model.attach_subnetworks(rec_model=rec_model.network_i, inter_model=inter_model)
+    model.attach_subnetworks(rec_model=rec_model.network_i, inter_model=inter_model, rec_model_2=rec_model_2.network_i)
 
     if args.mode == 'test':
         model.load_best()
     elif args.resume:
         model.load()
-    # model = model.cuda()
+
+    model = model.cuda()
 
     logger.info('Current epoch {}.'.format(model.epoch))
     logger.info('Current best metric in train phase is {}.'.format(model.best_target_metric))
 
-    recon_thick_v_ds_kwargs = {
+    ds_kwargs = {
         'mask_omega_path': args.u_mask_path,
         'mask_subset_1_path': args.s_mask_up_path,
         'mask_subset_2_path': args.s_mask_down_path,
         'pad': (256, 256, 256),
+        'crop': (256, 256, 256),
         'q': args.drop_rate,
     }
 
-    # if args.mode == 'test':
-    #     test_set = get_volume_datasets(args.test_tsv_path,
-    #                                     args.data_path,
-    #                                     ReconThickVolumeDataset,
-    #                                     recon_thick_v_ds_kwargs,
-    #                                     sub_limit=args.test_obj_limit)
-    #     test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
-    #     logger.info('The size of test dataset is {}.'.format(len(test_set)))
-    #     test_loader = tqdm(test_loader, desc='testing', total=int(len(test_loader)))
-    #
-    #     # run one epoch
-    #     test_log = model.test_one_epoch(test_loader)
-    #     logger.info(dict2line(test_log))
-    #
-    #     return
+    if args.mode == 'test':
+        test_set = get_volume_datasets(args.test_tsv_path,
+                                        args.data_path,
+                                        JointInferenceThickVolumeDataset,
+                                        ds_kwargs,
+                                        sub_limit=args.test_obj_limit)
+        test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
+        logger.info('The size of test dataset is {}.'.format(len(test_set)))
+        test_loader = tqdm(test_loader, desc='testing', total=int(len(test_loader)))
+
+        # run one epoch
+        test_log = model.test_one_epoch(test_loader)
+        logger.info(dict2line(test_log))
+
+        return
 
     # data
-    train_set = get_volume_datasets(args.train_tsv_path,
-                                    args.data_path,
-                                    JointTrainThickVolumeDataset,
-                                    recon_thick_v_ds_kwargs,
-                                    sub_limit=args.train_obj_limit)
+    unsup_train_set, sup_train_set = get_semisupervised_volume_datasets(args.train_tsv_path,
+                                                                        args.data_path,
+                                                                        JointSupVolumeDataset,
+                                                                        ds_kwargs,
+                                                                        JointUnsupVolumeDataset,
+                                                                        sub_limit=args.train_obj_limit,
+                                                                        sup_every=args.sup_every,
+                                                                        return_semi=False
+                                                                        )
     val_set = get_volume_datasets(args.val_tsv_path,
                                     args.data_path,
                                     JointInferenceThickVolumeDataset,
-                                    recon_thick_v_ds_kwargs,
+                                    ds_kwargs,
                                     sub_limit=args.val_obj_limit)
 
-    train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
-    logger.info('The size of train dataset is {}.'.format(len(train_set)))
+    unsup_train_loader = DataLoader(dataset=unsup_train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
+    sup_train_loader = DataLoader(dataset=sup_train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
+    logger.info(f'The size of train dataset is sup:unsup = {len(unsup_train_set)}:{len(sup_train_set)}.')
     val_loader = DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
     logger.info('The size of val dataset is {}.'.format(len(val_set)))
 
     # training loop
+    from itertools import cycle
     for epoch in range(model.epoch + 1, args.num_epochs + 1):
         # data and run one epoch
-        train_loader = tqdm(train_loader, desc='training', total=int(len(train_loader)))
-        train_log = model.train_one_epoch(train_loader)
+        if len(unsup_train_loader) > len(sup_train_loader):
+            real_loader = zip(unsup_train_loader, cycle(sup_train_loader))
+        else:
+            real_loader = zip(cycle(unsup_train_loader), sup_train_loader)
+
+        real_loader = tqdm(real_loader, desc='training', total=max(len(unsup_train_loader), len(sup_train_loader)))
+        train_log = model.train_one_epoch(real_loader)
         logger.info(dict2line(train_log))
         for k in filter(lambda x: 'train' in x, train_log.keys()):
             writer.add_scalar('train/'+k, train_log[k], train_log['epoch'])

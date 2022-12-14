@@ -247,8 +247,43 @@ class InterInferenceThickVolumeDataset(ThickVolumeDataset):
         return input_slice_1, input_slice_2, target_slice
 
 
-class JointTrainThickVolumeDataset(ThickVolumeDataset):
-    def __init__(self, mask_omega_path, mask_subset_1_path, mask_subset_2_path, *args, **kwargs):
+class JointSupVolumeDataset(VolumeDataset):
+    def __init__(self, mask_omega_path, mask_subset_1_path=None, mask_subset_2_path=None, *args, **kwargs):
+        """
+        Volume with ground truth (fully-sampled + dense slice)
+        :param mask_omega_path: mask to under-sampling
+        :param mask_subset_1_path: None
+        :param mask_subset_2_path: None
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(*args, **kwargs)
+        self.array = self.array.type(torch.complex64)
+        self.mask_under = np.array(sio.loadmat(mask_omega_path)['mask'])
+        self.mask_under = np.stack((self.mask_under, self.mask_under), axis=-1)
+        self.mask_omega = torch.from_numpy(self.mask_under).float()
+
+    def __len__(self):
+        return self.end - self.start - 2
+
+    def __getitem__(self, index):
+        slice_1 = self.array[..., index + self.start]
+        slice_2 = self.array[..., index + self.start + 1]
+        slice_3 = self.array[..., index + self.start + 2]
+
+        return slice_1, slice_2, slice_3, self.mask_omega
+
+
+class JointUnsupVolumeDataset(ThickVolumeDataset):
+    def __init__(self, mask_omega_path, mask_subset_1_path=None, mask_subset_2_path=None, *args, **kwargs):
+        """
+        Volume without ground truth (under-sampled + sparse slice)
+        :param mask_omega_path: under-sampled path
+        :param mask_subset_1_path: None
+        :param mask_subset_2_path: None
+        :param args:
+        :param kwargs:
+        """
         super().__init__(*args, **kwargs)
         self.thick_array = self.thick_array.type(torch.complex64)
         self.mask_under = np.array(sio.loadmat(mask_omega_path)['mask'])
@@ -326,7 +361,7 @@ def get_volume_datasets(tsv_path, data_path, ds_class, ds_kwargs, sub_limit=-1):
     return ds
 
 
-def get_semisupervised_volume_datasets(tsv_path, data_path, ds_class, ds_kwargs, unsup_ds_class=None, sub_limit=-1, sup_every=-1):
+def get_semisupervised_volume_datasets(tsv_path, data_path, ds_class, ds_kwargs, unsup_ds_class=None, sub_limit=-1, sup_every=-1, return_semi=True):
 
     mri_volume_paths = get_volume_path_from_tsv(tsv_path, data_path)
 
@@ -358,11 +393,15 @@ def get_semisupervised_volume_datasets(tsv_path, data_path, ds_class, ds_kwargs,
         if len(dss) == sub_limit:  # confine number of subjects
             break
 
-    ds = SemisupervisedConcatDatasetV2(unsup_dss, sup_dss)
+    print(f'Sup volume : unsup volume = {len(sup_dss)} : {len(unsup_dss)}')
+
     unsup_ds = torch.utils.data.ConcatDataset(unsup_dss)  if len(unsup_dss) > 0 else None
     sup_ds = torch.utils.data.ConcatDataset(sup_dss) if len(sup_dss) > 0 else None
-
-    return ds, unsup_ds, sup_ds
+    if return_semi:
+        ds = SemisupervisedConcatDatasetV2(unsup_dss, sup_dss)
+        return ds, unsup_ds, sup_ds
+    else:
+        return unsup_ds, sup_ds
 
 
 class FastMRIVolumeDataset(torch.utils.data.Dataset):
