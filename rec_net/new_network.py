@@ -455,6 +455,14 @@ class SemisupervisedKNetworkV3(SemisupervisedParallelKINetworkV3):
         self.output_i_2 = ifft2_tensor(output_k)
 
 
+class SemisupervisedKNetworkV4(SemisupervisedKNetworkV3):
+    def build(self):
+        self.network_k = du_recurrent_model.RecurrentOrderModel(self.args, k_last=True)
+
+        self.optimizer = torch.optim.Adam(list(self.network_k.parameters()),
+                                          lr=self.args.lr)
+
+
 class SemisupervisedINetworkV3(SemisupervisedParallelKINetworkV3):
     def build(self):
         self.network_i = du_recurrent_model.IRNet(self.args)
@@ -502,7 +510,17 @@ class SemisupervisedINetworkV3(SemisupervisedParallelKINetworkV3):
         self.output_i_2 = output_i
 
 
+class SemisupervisedINetworkV4(SemisupervisedINetworkV3):
+    def build(self):
+        self.network_i = du_recurrent_model.RecurrentOrderModel(self.args)
+
+        self.optimizer = torch.optim.Adam(list(self.network_i.parameters()),
+                                          lr=self.args.lr)
+
+
 V3 = SemisupervisedParallelKINetworkV3
 V3U = SemisupervisedParallelKINetworkV3Unet
 KV3 = SemisupervisedKNetworkV3
+KV4 = SemisupervisedKNetworkV4
 IV3 = SemisupervisedINetworkV3
+IV4 = SemisupervisedINetworkV4

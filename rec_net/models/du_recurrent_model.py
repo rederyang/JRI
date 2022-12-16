@@ -584,3 +584,77 @@ class HybridRecurrentModel(nn.Module):
         loss_ddc = self.criterion(diff_i2d, torch.zeros_like(diff_i2d)) + self.criterion(diff_k2d, torch.zeros_like(diff_k2d))
 
         return recon_i_dual_space, loss_omega, loss_ddc
+
+
+class RecurrentOrderModel(nn.Module):
+    def __init__(self, opts, k_last=False):
+        super(RecurrentOrderModel, self).__init__()
+
+        self.networks = []
+
+        self.n_recurrent = opts.n_recurrent
+
+        self.net_G_I = get_generator(opts.net_G, opts)
+        self.net_G_K = get_generator(opts.net_G, opts)
+        self.networks.append(self.net_G_I)
+        self.networks.append(self.net_G_K)
+
+        self.criterion = nn.L1Loss()
+
+        self.opts = opts
+
+        # data consistency layers in image space & k-space
+        dcs_I = []
+        for i in range(self.n_recurrent):
+            dcs_I.append(DataConsistencyInKspace_I(noise_lvl=None))
+        self.dcs_I = dcs_I
+
+        dcs_K = []
+        for i in range(self.n_recurrent):
+            dcs_K.append(DataConsistencyInKspace_K(noise_lvl=None))
+        self.dcs_K = dcs_K
+
+        self.k_last = k_last
+
+    def setgpu(self, gpu_ids):
+        self.device = torch.device('cuda:{}'.format(gpu_ids[0]))
+
+    def initialize(self):
+        # FIXME: this initialization will make convergence slow！
+        [net.apply(gaussian_weights_init) for net in self.networks]
+
+    def forward(self, img_subset, k_subset, mask_subset, k_omega, mask_omega):
+
+        loss_img = 0.
+        loss_k = 0.
+
+        if self.k_last:  # IKIK...
+            I = img_subset
+            K = None
+            for i in range(1, self.n_recurrent + 1):
+                I = self.net_G_I(I)  # output recon image
+                I, K = self.dcs_I[i - 1](I, k_subset, mask_subset)
+                loss_img = loss_img + self.criterion(fft2_tensor(I) * mask_omega, k_omega)
+
+                K = self.net_G_K(K)
+                loss_k = loss_k + self.criterion(K * mask_omega, k_omega)
+                I, K = self.dcs_K[i - 1](K, k_subset, mask_subset)
+
+            loss = loss_img + loss_k
+
+            return K, loss
+        else:  # KIKI...
+            I = None
+            K = k_subset
+            for i in range(1, self.n_recurrent + 1):
+                K = self.net_G_K(K)
+                loss_k = loss_k + self.criterion(K * mask_omega, k_omega)
+                I, K = self.dcs_K[i - 1](K, k_subset, mask_subset)
+
+                I = self.net_G_I(I)  # output recon image
+                I, K = self.dcs_I[i - 1](I, k_subset, mask_subset)
+                loss_img = loss_img + self.criterion(fft2_tensor(I) * mask_omega, k_omega)
+
+            loss = loss_img + loss_k
+
+            return I, loss
