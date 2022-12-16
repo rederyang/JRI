@@ -26,13 +26,13 @@ parser.add_argument('--use_prior', default=False, action='store_true', help='use
 parser.add_argument('--gpu_ids', type=int, nargs='+', default=[0], help='list of gpu ids')
 # learning rate, batch size, and etc
 parser.add_argument('--seed', type=int, default=30, help='random seed number')
-parser.add_argument('--lr', '-lr', type=float, default=1e-4, help='initial learning rate')
+parser.add_argument('--lr', '-lr', type=float, default=1e-3, help='initial learning rate')
 parser.add_argument('--batch-size', type=int, default=2, help='batch size of single gpu')
 parser.add_argument('--num-workers', type=int, default=8, help='number of workers')
 parser.add_argument('--warmup-epochs', type=int, default=-1, help='number of warmup epochs')
 parser.add_argument('--num-epochs', type=int, default=500, help='maximum number of epochs')
 parser.add_argument('--reduce-lr-patience', type=int, default=100000)
-parser.add_argument('--early-stop-patience', type=int, default=100000)
+parser.add_argument('--early-stop-patience', type=int, default=10)
 # parameters related to data and masks
 parser.add_argument('--train-tsv-path', metavar='/path/to/training_data', default="./train_participants.tsv", type=str)
 parser.add_argument('--val-tsv-path', metavar='/path/to/validation_data', default="./val_participants.tsv", type=str)
@@ -90,7 +90,8 @@ def solvers(args):
     if args.mode == 'test':
         test_set = get_volume_datasets(args.test_tsv_path,
                                         args.data_path,
-                                        ReconThickVolumeDataset,
+                                        # ReconThickVolumeDataset,
+                                        ReconVolumeDataset,
                                         recon_thick_v_ds_kwargs,
                                         sub_limit=args.test_obj_limit)
         test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
@@ -105,13 +106,16 @@ def solvers(args):
 
     # data
     train_set = get_volume_datasets(args.train_tsv_path,
-                                    args.syn_data_path if args.use_syn_data else args.data_path,
-                                    ReconVolumeDataset if args.use_syn_data else ReconThickVolumeDataset,
+                                    # args.syn_data_path if args.use_syn_data else args.data_path,
+                                    # ReconVolumeDataset if args.use_syn_data else ReconThickVolumeDataset,
+                                    args.data_path,
+                                    ReconVolumeDataset,
                                     recon_thick_v_ds_kwargs,
                                     sub_limit=args.train_obj_limit)
     val_set = get_volume_datasets(args.val_tsv_path,
                                     args.data_path,
-                                    ReconThickVolumeDataset,
+                                    # ReconThickVolumeDataset,
+                                    ReconVolumeDataset,
                                     recon_thick_v_ds_kwargs,
                                     sub_limit=args.val_obj_limit)
 
