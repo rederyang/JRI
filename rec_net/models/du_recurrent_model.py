@@ -5,7 +5,7 @@ import torch.utils.data
 from rec_net.networks import get_generator
 from rec_net.networks.networks import gaussian_weights_init
 from rec_net.models.utils import DataConsistencyInKspace_I, DataConsistencyInKspace_K, fft2
-from mri_tools import fft2_tensor
+from mri_tools import fft2_tensor, ifft2_tensor
 
 
 class RecurrentModel(nn.Module):
@@ -658,3 +658,11 @@ class RecurrentOrderModel(nn.Module):
             loss = loss_img + loss_k
 
             return I, loss
+
+    def forward_get_image(self, *args, **kwargs):
+        item, loss = self.forward(*args, **kwargs)
+        if self.k_last:
+            image = ifft2_tensor(item)
+        else:
+            image = item
+        return image, loss

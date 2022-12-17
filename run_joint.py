@@ -21,12 +21,14 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 parser = argparse.ArgumentParser()
 # model setting for rec_model
 parser.add_argument('--rec-model', type=str, required=True, help='type of model')
+parser.add_argument('--rec-model-2', type=str, required=True, help='type of model')
 parser.add_argument('--use-init-weights', '-uit', type=bool, default=True,
                     help='whether initialize model weights with defined types')
 parser.add_argument('--net_G', type=str, default='DRDN', help='generator network')  # DRDN / SCNN
 parser.add_argument('--n_recurrent', type=int, default=2, help='Number of reccurent block in model')
 parser.add_argument('--use_prior', default=False, action='store_true', help='use prior')  # True / False
 parser.add_argument('--rec-model-ckpt-path', type=str)
+parser.add_argument('--rec-model-2-ckpt-path', type=str)
 # model setting for inter_model
 parser.add_argument('--inter-model', type=str, default='TSCNet', help='type of model')
 parser.add_argument('--gpu_ids', type=int, nargs='+', default=[0], help='list of gpu ids')
@@ -92,16 +94,20 @@ def solvers(args):
 
     # rec model
     rec_model = make_rec_model(0, args, model_name=args.rec_model)
-    rec_model_2 = make_rec_model(0, args, model_name=args.rec_model)
-    # if args.rec_model_ckpt_path is not None:
-    #     rec_model.load(args.rec_model_ckpt_path)
+    rec_model_2 = make_rec_model(0, args, model_name=args.rec_model_2)
+    if args.rec_model_ckpt_path is not None:
+        rec_model.load(args.rec_model_ckpt_path)
+    if args.rec_model_2_ckpt_path is not None:
+        rec_model_2.load(args.rec_model_2_ckpt_path)
+    rec_model = rec_model.network_k
+    rec_model_2 = rec_model_2.network_i
     # inter model
     inter_model = make_inter_model(0, args, model_name=args.inter_model)
-    # if args.inter_model_ckpt_path is not None:
-    #     inter_model.load(args.inter_model_ckpt_path)
+    if args.inter_model_ckpt_path is not None:
+        inter_model.load(args.inter_model_ckpt_path)
     # joint model
     model = JRI(0, args)
-    model.attach_subnetworks(rec_model=rec_model.network_i, inter_model=inter_model, rec_model_2=rec_model_2.network_i)
+    model.attach_subnetworks(rec_model=rec_model, inter_model=inter_model, rec_model_2=rec_model_2)
 
     if args.mode == 'test':
         model.load_best()
