@@ -162,7 +162,7 @@ def solvers(args):
 
     unsup_train_loader = DataLoader(dataset=unsup_train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
     sup_train_loader = DataLoader(dataset=sup_train_set, batch_size=args.batch_size, shuffle=True, pin_memory=True)
-    logger.info(f'The size of train dataset is sup:unsup = {len(unsup_train_set)}:{len(sup_train_set)}.')
+    logger.info(f'The size of train dataset is sup:unsup = {len(sup_train_set)}:{len(unsup_train_set)}.')
     val_loader = DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=False, pin_memory=True)
     logger.info('The size of val dataset is {}.'.format(len(val_set)))
 
