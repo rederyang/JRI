@@ -365,12 +365,21 @@ def get_semisupervised_volume_datasets(tsv_path, data_path, ds_class, ds_kwargs,
 
     mri_volume_paths = get_volume_path_from_tsv(tsv_path, data_path)
 
+    if sub_limit < 0:
+        sub_limit = len(mri_volume_paths)
+
+    if sup_every > 0:
+        sup_range = int(sub_limit / sup_every)
+    elif sup_every == 0:
+        sup_range = sub_limit
+    else:  # sup_every == -1
+        sup_range = 0
+
     dss, unsup_dss, sup_dss = [], [], []
     for mri_volume_path in tqdm(mri_volume_paths):
+        # sup or unsup for the next ds to append
         unsup = True
-        if sup_every > 0 and (len(dss) + 1) % sup_every == 0:
-            unsup = False
-        elif sup_every == 0:
+        if (len(dss) + 1) <= sup_range:
             unsup = False
 
         ds_kwargs.update({'volume':mri_volume_path,
@@ -507,12 +516,21 @@ def get_fastmri_semisupervised_volume_datasets(csv_path, data_path, ds_class, ds
 
     mri_volume_paths = get_volume_path_from_csv(csv_path, data_path)
 
+    if sub_limit < 0:
+        sub_limit = len(mri_volume_paths)
+
+    if sup_every > 0:
+        sup_range = int(sub_limit / sup_every)
+    elif sup_every == 0:
+        sup_range = sub_limit
+    else:  # sup_every == -1
+        sup_range = 0
+
     dss, unsup_dss, sup_dss = [], [], []
     for mri_volume_path in tqdm(mri_volume_paths):
+        # sup or unsup for the next ds to append
         unsup = True
-        if sup_every > 0 and (len(dss) + 1) % sup_every == 0:
-            unsup = False
-        elif sup_every == 0:
+        if (len(dss) + 1) <= sup_range:
             unsup = False
 
         ds_kwargs.update({'volume':mri_volume_path,
@@ -607,13 +625,13 @@ if __name__ == "__main__":
     #     plt.imsave(f'./inter_inf_thick_v_ds/{i}.png', to_save, cmap='gray')
     #
     #
-    # joint_inf_thick_v_ds_kwargs = {
-    #     'mask_omega_path': './mask/undersampling_mask/mask_8.00x_acs24.mat',
-    #     'mask_subset_1_path': 'mask/selecting_mask/mask_2.00x_acs16.mat',
-    #     'mask_subset_2_path': 'mask/selecting_mask/mask_2.50x_acs16.mat',
-    #     'pad': (256, 256, 256),
-    #     'q': 0.2,
-    # }
+    joint_inf_thick_v_ds_kwargs = {
+        'mask_omega_path': './mask/undersampling_mask/mask_8.00x_acs24.mat',
+        'mask_subset_1_path': 'mask/selecting_mask/mask_2.00x_acs16.mat',
+        'mask_subset_2_path': 'mask/selecting_mask/mask_2.50x_acs16.mat',
+        'pad': (256, 256, 256),
+        'q': 0.2,
+    }
     # joint_inf_thick_v_ds = get_volume_datasets('./participants.tsv',
     #                                        '/mnt/d/data/ADNI/ADNIRawData',
     #                                        JointInferenceThickVolumeDataset,
@@ -624,6 +642,16 @@ if __name__ == "__main__":
     # for i, sample in enumerate(joint_inf_thick_v_ds):
     #     to_save = np.concatenate(unpack(sample), axis=1)
     #     plt.imsave(f'./joint_inf_thick_v_ds/{i}.png', to_save, cmap='gray')
+
+    unsup_train_set, sup_train_set = get_semisupervised_volume_datasets('./participants.tsv',
+                                                                        '/mnt/d/data/ADNI/ADNIRawData',
+                                                                        JointSupVolumeDataset,
+                                                                        joint_inf_thick_v_ds_kwargs,
+                                                                        JointUnsupVolumeDataset,
+                                                                        sub_limit=6,
+                                                                        sup_every=2,
+                                                                        return_semi=False
+                                                                        )
 
 
     # fastmri_v_ds_kwargs = {
@@ -666,29 +694,29 @@ if __name__ == "__main__":
 
 ######################################
 
-    semi_set, unsup_set, sup_set = get_fastmri_semisupervised_volume_datasets('../SpatialAlignmentNetwork/fastMRI_brain_DICOM/t1_t2_paired_6875_train.csv',
-                                '../SpatialAlignmentNetwork/fastMRI_brain_DICOM/',
-                                ReconFastMRIVolumeDataset,
-                                fastmri_v_ds_kwargs,
-                                sub_limit=3,
-                                sup_every=2
-                                )
-    ic(len(semi_set))
-    ic(len(unsup_set))
-    ic(len(sup_set))
+    # semi_set, unsup_set, sup_set = get_fastmri_semisupervised_volume_datasets('../SpatialAlignmentNetwork/fastMRI_brain_DICOM/t1_t2_paired_6875_train.csv',
+    #                             '../SpatialAlignmentNetwork/fastMRI_brain_DICOM/',
+    #                             ReconFastMRIVolumeDataset,
+    #                             fastmri_v_ds_kwargs,
+    #                             sub_limit=-1,
+    #                             sup_every=2
+    #                             )
+    # ic(len(semi_set))
+    # ic(len(unsup_set))
+    # ic(len(sup_set))
 
-    os.makedirs('./semi_v_ds', exist_ok=True)
-    for i, sample in enumerate(semi_set):
-        slice, mask_omega, mask_subset1, mask_subset2 = sample[:4]
-        ic(slice.shape)
-        ic(mask_omega.shape)
-        ic(mask_subset1.shape)
-        ic(mask_subset2.shape)
-        ic(sample[-1])
-        plt.imsave(f'./semi_v_ds/slice_{i}.png', abs(slice[0]), cmap='gray')
-        plt.imsave(f'./semi_v_ds/mask_omega_{i}.png', abs(mask_omega[..., -1]), cmap='gray')
-        plt.imsave(f'./semi_v_ds/mask_subset1_{i}.png', abs(mask_subset1[..., -1]), cmap='gray')
-        plt.imsave(f'./semi_v_ds/mask_subset2_{i}.png', abs(mask_subset2[..., -1]), cmap='gray')
+    # os.makedirs('./semi_v_ds', exist_ok=True)
+    # for i, sample in enumerate(semi_set):
+    #     slice, mask_omega, mask_subset1, mask_subset2 = sample[:4]
+    #     ic(slice.shape)
+    #     ic(mask_omega.shape)
+    #     ic(mask_subset1.shape)
+    #     ic(mask_subset2.shape)
+    #     ic(sample[-1])
+    #     plt.imsave(f'./semi_v_ds/slice_{i}.png', abs(slice[0]), cmap='gray')
+    #     plt.imsave(f'./semi_v_ds/mask_omega_{i}.png', abs(mask_omega[..., -1]), cmap='gray')
+    #     plt.imsave(f'./semi_v_ds/mask_subset1_{i}.png', abs(mask_subset1[..., -1]), cmap='gray')
+    #     plt.imsave(f'./semi_v_ds/mask_subset2_{i}.png', abs(mask_subset2[..., -1]), cmap='gray')
 
 
 ###########################
