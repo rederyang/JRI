@@ -97,33 +97,25 @@ class JointReconInterModel(BaseModel):
             self.unsup_sample = unsup_sample
 
         else:
-            sup_sample = dict()
-            slice_1, slice_2, slice_3, mask_omega = data_batch
+            inf_sample = dict()
+            slice_1, slice_3, slice_2, mask_omega = data_batch
             slice_1 = torch.view_as_real(slice_1[:, 0].to(self.rank, non_blocking=True)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
             slice_2 = torch.view_as_real(slice_2[:, 0].to(self.rank, non_blocking=True)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
             slice_3 = torch.view_as_real(slice_3[:, 0].to(self.rank, non_blocking=True)).permute(0, 3, 1, 2).contiguous()  # -> [bs, 2, x, y]
             mask_omega = mask_omega.to(self.rank, non_blocking=True).permute(0, 3, 1, 2).contiguous()
 
-            slice_1_k = fft2_tensor(slice_1)
             slice_2_k = fft2_tensor(slice_2)
-            slice_3_k = fft2_tensor(slice_3)
-
-            slice_1_k_omega = fft2_tensor(slice_1) * mask_omega
             slice_2_k_omega = fft2_tensor(slice_2) * mask_omega
-            slice_3_k_omega = fft2_tensor(slice_3) * mask_omega
-
-            slice_1_img_omega = ifft2_tensor(slice_1_k_omega)
             slice_2_img_omega = ifft2_tensor(slice_2_k_omega)
-            slice_3_img_omega = ifft2_tensor(slice_3_k_omega)
 
-            sup_sample['slice_1'] = slice_1
-            sup_sample['slice_2'] = slice_2
-            sup_sample['slice_3'] = slice_3
-            sup_sample['slice_2_k'] = slice_2_k
-            sup_sample['mask_omega'] = mask_omega
-            sup_sample['slice_2_k_omega'] = slice_2_k_omega
-            sup_sample['slice_2_img_omega'] = slice_2_img_omega
-            self.sup_sample = sup_sample
+            inf_sample['slice_1'] = slice_1
+            inf_sample['slice_2'] = slice_2
+            inf_sample['slice_3'] = slice_3
+            inf_sample['slice_2_k'] = slice_2_k
+            inf_sample['mask_omega'] = mask_omega
+            inf_sample['slice_2_k_omega'] = slice_2_k_omega
+            inf_sample['slice_2_img_omega'] = slice_2_img_omega
+            self.inf_sample = inf_sample
 
     def sup_forward(self):
         # sup recon (only rec the second slice in the triplet slices)
@@ -250,26 +242,26 @@ class JointReconInterModel(BaseModel):
 
     def inference(self):
         # recon (only recon the middle slice in the triplet slices)
-        slice_2_img_rec, _ = self.rec_model.forward_get_image(self.sup_sample['slice_2_img_omega'],
-                                                 self.sup_sample['slice_2_k_omega'],
-                                                 self.sup_sample['mask_omega'],
-                                                 self.sup_sample['slice_2_k'],
-                                                 torch.ones_like(self.sup_sample['mask_omega'])
+        slice_2_img_rec, _ = self.rec_model.forward_get_image(self.inf_sample['slice_2_img_omega'],
+                                                 self.inf_sample['slice_2_k_omega'],
+                                                 self.inf_sample['mask_omega'],
+                                                 self.inf_sample['slice_2_k'],
+                                                 torch.ones_like(self.inf_sample['mask_omega'])
                                                  )
-        slice_2_img_rec_2, _ = self.rec_model_2.forward_get_image(self.sup_sample['slice_2_img_omega'],
-                                                 self.sup_sample['slice_2_k_omega'],
-                                                 self.sup_sample['mask_omega'],
-                                                 self.sup_sample['slice_2_k'],
-                                                 torch.ones_like(self.sup_sample['mask_omega'])
+        slice_2_img_rec_2, _ = self.rec_model_2.forward_get_image(self.inf_sample['slice_2_img_omega'],
+                                                 self.inf_sample['slice_2_k_omega'],
+                                                 self.inf_sample['mask_omega'],
+                                                 self.inf_sample['slice_2_k'],
+                                                 torch.ones_like(self.inf_sample['mask_omega'])
                                                  )
-        self.rec_gt = self.sup_sample['slice_2']
+        self.rec_gt = self.inf_sample['slice_2']
         self.rec_pred = slice_2_img_rec
         self.rec_pred_2 = slice_2_img_rec_2
 
         # interpolation (using gt slices as input)
-        slice_1 = torch.abs(real2complex_tensor(self.sup_sample['slice_1']))  # to get real-valued img
-        slice_2 = torch.abs(real2complex_tensor(self.sup_sample['slice_2']))
-        slice_3 = torch.abs(real2complex_tensor(self.sup_sample['slice_3']))
+        slice_1 = torch.abs(real2complex_tensor(self.inf_sample['slice_1']))  # to get real-valued img
+        slice_2 = torch.abs(real2complex_tensor(self.inf_sample['slice_2']))
+        slice_3 = torch.abs(real2complex_tensor(self.inf_sample['slice_3']))
         slice_2_img_inter = self.inter_model.recon(slice_1, slice_3)
 
         self.inter_gt = slice_2
