@@ -35,6 +35,8 @@ parser.add_argument('--warmup-epochs', type=int, default=-1, help='number of war
 parser.add_argument('--num-epochs', type=int, default=500, help='maximum number of epochs')
 parser.add_argument('--pre-epochs', type=int, default=100)
 parser.add_argument('--self-epochs', type=int, default=150)
+parser.add_argument('--reduce-lr-patience', type=int, default=100000)
+parser.add_argument('--early-stop-patience', type=int, default=100000)
 parser.add_argument('--patience', type=int, default=100000)
 # parameters related to data and masks
 parser.add_argument('--train-tsv-path', metavar='/path/to/training_data', default="./train_participants.tsv", type=str)
@@ -46,7 +48,7 @@ parser.add_argument('--use-rec-data', action='store_true', help='whether to use 
 parser.add_argument('--train-obj-limit', type=int, default=20, help='number of objects in training set')
 parser.add_argument('--val-obj-limit', type=int, default=5, help='number of objects in val set')
 parser.add_argument('--test-obj-limit', type=int, default=20, help='number of objects in test set')
-parser.add_argument('--drop-rate', type=int, default=0.2, help='ratio to drop edge slices')
+parser.add_argument('--drop-rate', type=float, default=0.2, help='ratio to drop edge slices')
 # save path
 parser.add_argument('--output-path', type=str, default='./runs/test_run/', help='output path')
 # others
@@ -104,20 +106,25 @@ def solvers(args):
         return
 
     # data
-    inter_thick_v_ds_kwargs.update({'dim': 1})
-    train_set_1 = get_volume_datasets(args.train_tsv_path,
-                                    args.rec_data_path if args.use_rec_data else args.data_path,
-                                    InterPretrainThickVolumeDataset,
+    # inter_thick_v_ds_kwargs.update({'dim': 1})
+    # train_set_1 = get_volume_datasets(args.train_tsv_path,
+    #                                 args.rec_data_path if args.use_rec_data else args.data_path,
+    #                                 InterPretrainThickVolumeDataset,
+    #                                 inter_thick_v_ds_kwargs,
+    #                                 sub_limit=args.train_obj_limit)
+    # inter_thick_v_ds_kwargs.update({'dim': 2})
+    # train_set_2 = get_volume_datasets(args.train_tsv_path,
+    #                                 args.rec_data_path if args.use_rec_data else args.data_path,
+    #                                 InterPretrainThickVolumeDataset,
+    #                                 inter_thick_v_ds_kwargs,
+    #                                 sub_limit=args.train_obj_limit)
+    # train_set = torch.utils.data.ConcatDataset([train_set_1, train_set_2])
+    # inter_thick_v_ds_kwargs.pop('dim')
+    train_set = get_volume_datasets(args.train_tsv_path,
+                                    args.data_path,
+                                    InterInferenceThickVolumeDataset,
                                     inter_thick_v_ds_kwargs,
                                     sub_limit=args.train_obj_limit)
-    inter_thick_v_ds_kwargs.update({'dim': 2})
-    train_set_2 = get_volume_datasets(args.train_tsv_path,
-                                    args.rec_data_path if args.use_rec_data else args.data_path,
-                                    InterPretrainThickVolumeDataset,
-                                    inter_thick_v_ds_kwargs,
-                                    sub_limit=args.train_obj_limit)
-    train_set = torch.utils.data.ConcatDataset([train_set_1, train_set_2])
-    inter_thick_v_ds_kwargs.pop('dim')
     val_set = get_volume_datasets(args.val_tsv_path,
                                   args.data_path,
                                   InterInferenceThickVolumeDataset,

@@ -39,8 +39,8 @@ class BaseModel(nn.Module):
         self.scheduler_wu = torch.optim.lr_scheduler.LambdaLR(optimizer=self.optimizer, lr_lambda=lambda
             epoch: epoch / self.args.warmup_epochs if epoch <= self.args.warmup_epochs else 1)
         self.scheduler_re = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=self.optimizer, mode='max', factor=0.3,
-                                                                       patience=self.args.patience)
-        self.early_stopping = EarlyStopping(patience=50, delta=1e-5)
+                                                                       patience=self.args.reduce_lr_patience)
+        self.early_stopping = EarlyStopping(patience=self.args.early_stop_patience, delta=1e-5)
 
     def set_input(self, mode, batch_data):
         """
