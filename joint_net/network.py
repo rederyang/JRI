@@ -117,39 +117,38 @@ class JointReconInterModel(BaseModel):
             inf_sample['slice_2_img_omega'] = slice_2_img_omega
             self.inf_sample = inf_sample
 
-    def sup_forward(self):
+    def sup_rec_forward(self):
         # sup recon (only rec the second slice in the triplet slices)
         slice_2_img_rec, slice_2_rec_loss = self.rec_model.forward_get_image(self.sup_sample['slice_2_img_omega'],
-                                                 self.sup_sample['slice_2_k_omega'],
-                                                 self.sup_sample['mask_omega'],
-                                                 self.sup_sample['slice_2_k'],
-                                                 torch.ones_like(self.sup_sample['mask_omega'])
-                                                 )
-        slice_2_img_rec_by_rec_model_2, slice_2_rec_loss_by_rec_model_2 = self.rec_model_2.forward_get_image(self.sup_sample['slice_2_img_omega'],
-                                                 self.sup_sample['slice_2_k_omega'],
-                                                 self.sup_sample['mask_omega'],
-                                                 self.sup_sample['slice_2_k'],
-                                                 torch.ones_like(self.sup_sample['mask_omega'])
-                                                 )
-        loss_rec = self.rec_sup_weight * (slice_2_rec_loss + slice_2_rec_loss_by_rec_model_2)
+                                                                             self.sup_sample['slice_2_k_omega'],
+                                                                             self.sup_sample['mask_omega'],
+                                                                             self.sup_sample['slice_2_k'],
+                                                                             torch.ones_like(
+                                                                                 self.sup_sample['mask_omega'])
+                                                                             )
+        slice_2_img_rec_by_rec_model_2, slice_2_rec_loss_by_rec_model_2 = self.rec_model_2.forward_get_image(
+            self.sup_sample['slice_2_img_omega'],
+            self.sup_sample['slice_2_k_omega'],
+            self.sup_sample['mask_omega'],
+            self.sup_sample['slice_2_k'],
+            torch.ones_like(self.sup_sample['mask_omega'])
+            )
+        sup_loss_rec = self.rec_sup_weight * (slice_2_rec_loss + slice_2_rec_loss_by_rec_model_2)
 
+        return sup_loss_rec
+
+    def sup_inter_forward(self):
         # sup interpolation
         slice_1 = torch.abs(real2complex_tensor(self.sup_sample['slice_1']))  # to get real-valued img
         slice_2 = torch.abs(real2complex_tensor(self.sup_sample['slice_2']))
         slice_3 = torch.abs(real2complex_tensor(self.sup_sample['slice_3']))
         slice_2_img_inter = self.inter_model.recon(slice_1, slice_3)
         inter_diff = slice_2_img_inter - slice_2
-        loss_inter = self.inter_sup_weight * self.imgspace_criterion(inter_diff, torch.zeros_like(inter_diff))
+        sup_loss_inter = self.inter_sup_weight * self.imgspace_criterion(inter_diff, torch.zeros_like(inter_diff))
 
-        sup_loss = loss_rec + loss_inter
+        return sup_loss_inter
 
-        self.to_meters('sup_rec_loss', loss_rec.item())
-        self.to_meters('sup_inter_loss', loss_inter.item())
-        self.to_meters('sup_loss', sup_loss.item())
-
-        return sup_loss
-
-    def unsup_forward(self):
+    def unsup_rec_forward(self):
         # recon (we reocn all triplet slices to inter, but calculate loss only on the second one (slice 3))
         slice_1_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_1_img_omega'],
                                                     self.unsup_sample['slice_1_k_omega'],
@@ -187,6 +186,7 @@ class JointReconInterModel(BaseModel):
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
                                                     torch.ones_like(self.sup_sample['mask_omega'])
                         )
+        # dual-domain reconstruction consistency
         rec_loss = self.rec_unsup_weight * self.imgspace_criterion(slice_3_img_rec, slice_3_img_rec_2)
 
         # interpolation
@@ -208,29 +208,109 @@ class JointReconInterModel(BaseModel):
         slice_4_img_inter_2 = self.inter_model.recon(slice_3_img_rec_2, slice_5_img_rec_2)
         slice_inter_2 = torch.cat([slice_2_img_inter_2, slice_4_img_inter_2], dim=0)
 
-        rec_inter_loss = self.inter_unsup_weight * self.imgspace_criterion(slice_inter, slice_inter_2)
+        # dual-domain recon-interpolation consistency
+        rec_inter_loss = self.rec_unsup_weight * self.imgspace_criterion(slice_inter, slice_inter_2)
 
-        unsup_loss = rec_loss + rec_inter_loss
+        unsup_rec_loss = rec_loss + rec_inter_loss
 
-        self.to_meters('unsup_rec_loss', rec_loss.item())
-        self.to_meters('unsup_rec_inter_loss', rec_inter_loss.item())
-        self.to_meters('unsup_loss', unsup_loss.item())
+        return unsup_rec_loss
 
-        return unsup_loss
+    def unsup_inter_forward(self):
+        # recon (we reocn all triplet slices to inter, but calculate loss only on the second one (slice 3))
+        slice_1_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_1_img_omega'],
+                                                              self.unsup_sample['slice_1_k_omega'],
+                                                              self.unsup_sample['mask_omega'],
+                                                              torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
+                                                              torch.ones_like(self.sup_sample['mask_omega'])
+                                                              )
+        slice_3_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_3_img_omega'],
+                                                              self.unsup_sample['slice_3_k_omega'],
+                                                              self.unsup_sample['mask_omega'],
+                                                              torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
+                                                              torch.ones_like(self.sup_sample['mask_omega'])
+                                                              )
+        slice_5_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_5_img_omega'],
+                                                              self.unsup_sample['slice_5_k_omega'],
+                                                              self.unsup_sample['mask_omega'],
+                                                              torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
+                                                              torch.ones_like(self.sup_sample['mask_omega'])
+                                                              )
 
+        # interpolation
+        # to real, abs
+        slice_1_img_rec = torch.abs(real2complex_tensor(slice_1_img_rec))
+        slice_3_img_rec = torch.abs(real2complex_tensor(slice_3_img_rec))
+        slice_5_img_rec = torch.abs(real2complex_tensor(slice_5_img_rec))
+        # 1st order inter
+        slice_2_img_inter = self.inter_model.recon(slice_1_img_rec, slice_3_img_rec)
+        slice_4_img_inter = self.inter_model.recon(slice_3_img_rec, slice_5_img_rec)
+        # 2nd order inter
+        slice_3_img_inter = self.inter_model.recon(slice_2_img_inter, slice_4_img_inter)
 
-    def train_forward(self):
+        unsup_inter_loss = self.inter_unsup_weight * self.imgspace_criterion(slice_3_img_rec, slice_3_img_inter)
+
+        return unsup_inter_loss
+
+    def train_rec_forward(self):
         loss = 0.
 
         # for sup samples
-        loss_sup = self.sup_forward()
+        loss_sup = self.sup_rec_forward()
 
         # for unsup samples
-        loss_unsup = self.unsup_forward()
+        loss_unsup = self.unsup_rec_forward()
 
         loss = loss_sup + loss_unsup
 
+        self.to_meters('sup_rec_loss', loss_sup.item())
+        self.to_meters('unsup_rec_loss', loss_unsup.item())
+        self.to_meters('rec_loss', loss.item())
+
         return loss
+    def train_inter_forward(self):
+        loss = 0.
+
+        # for sup samples
+        loss_sup = self.sup_inter_forward()
+
+        # for unsup samples
+        loss_unsup = self.unsup_inter_forward()
+
+        loss = loss_sup + loss_unsup
+
+        self.to_meters('sup_inter_loss', loss_sup.item())
+        self.to_meters('unsup_inter_loss', loss_unsup.item())
+        self.to_meters('inter_loss', loss.item())
+
+        return loss
+
+    def set_train_mode(self, mode):
+        assert mode in ['rec', 'inter']
+
+        self.train_mode = mode
+
+        if self.train_mode == 'rec':
+            for p in self.rec_model.parameters():
+                p.requires_grad = True
+            for p in self.rec_model_2.parameters():
+                p.requires_grad = True
+            for p in self.inter_model.parameters():
+                p.requires_grad = False
+        else:
+            for p in self.rec_model.parameters():
+                p.requires_grad = False
+            for p in self.rec_model_2.parameters():
+                p.requires_grad = False
+            for p in self.inter_model.parameters():
+                p.requires_grad = True
+
+    def train_forward(self):
+        assert self.train_mode in ['rec', 'inter']
+
+        if self.train_mode == 'rec':
+            return self.train_rec_forward()
+        else:
+            return self.train_inter_forward()
 
     def update(self):
         loss = self.train_forward()

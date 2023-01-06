@@ -77,6 +77,7 @@ parser.add_argument('--mode', '-m', type=str, default='train',
                     help='whether training or test model, value should be set to train or test')
 parser.add_argument('--resume', action='store_true', help='whether resume to train')
 parser.add_argument('--save-evaluation-viz', action='store_true')
+parser.add_argument('--train-mode', type=str, choices=['rec', 'inter'], required=True)
 # semi-supervised learning
 parser.add_argument('--sup-every', type=int, default=2)
 parser.add_argument('--rec-sup-weight', type=float, default=1.0)
@@ -108,6 +109,7 @@ def solvers(args):
     # joint model
     model = JRI(0, args)
     model.attach_subnetworks(rec_model=rec_model, inter_model=inter_model, rec_model_2=rec_model_2)
+    model.set_train_mode(args.train_mode)
 
     if args.mode == 'test':
         model.load_best()
