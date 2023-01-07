@@ -154,37 +154,37 @@ class JointReconInterModel(BaseModel):
                                                     self.unsup_sample['slice_1_k_omega'],
                                                     self.unsup_sample['mask_omega'],
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                    torch.ones_like(self.sup_sample['mask_omega'])
+                                                    torch.ones_like(self.unsup_sample['mask_omega'])
                         )
         slice_3_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_3_img_omega'],
                                                     self.unsup_sample['slice_3_k_omega'],
                                                     self.unsup_sample['mask_omega'],
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                    torch.ones_like(self.sup_sample['mask_omega'])
+                                                    torch.ones_like(self.unsup_sample['mask_omega'])
                         )
         slice_5_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_5_img_omega'],
                                                     self.unsup_sample['slice_5_k_omega'],
                                                     self.unsup_sample['mask_omega'],
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                    torch.ones_like(self.sup_sample['mask_omega'])
+                                                    torch.ones_like(self.unsup_sample['mask_omega'])
                         )
         slice_1_img_rec_2, _ = self.rec_model_2.forward_get_image(self.unsup_sample['slice_1_img_omega'],
                                                     self.unsup_sample['slice_1_k_omega'],
                                                     self.unsup_sample['mask_omega'],
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                    torch.ones_like(self.sup_sample['mask_omega'])
+                                                    torch.ones_like(self.unsup_sample['mask_omega'])
                         )
         slice_3_img_rec_2, _ = self.rec_model_2.forward_get_image(self.unsup_sample['slice_3_img_omega'],
                                                     self.unsup_sample['slice_3_k_omega'],
                                                     self.unsup_sample['mask_omega'],
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                    torch.ones_like(self.sup_sample['mask_omega'])
+                                                    torch.ones_like(self.unsup_sample['mask_omega'])
                         )
         slice_5_img_rec_2, _ = self.rec_model_2.forward_get_image(self.unsup_sample['slice_5_img_omega'],
                                                     self.unsup_sample['slice_5_k_omega'],
                                                     self.unsup_sample['mask_omega'],
                                                     torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                    torch.ones_like(self.sup_sample['mask_omega'])
+                                                    torch.ones_like(self.unsup_sample['mask_omega'])
                         )
         # dual-domain reconstruction consistency
         rec_loss = self.rec_unsup_weight * self.imgspace_criterion(slice_3_img_rec, slice_3_img_rec_2)
@@ -221,19 +221,19 @@ class JointReconInterModel(BaseModel):
                                                               self.unsup_sample['slice_1_k_omega'],
                                                               self.unsup_sample['mask_omega'],
                                                               torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                              torch.ones_like(self.sup_sample['mask_omega'])
+                                                              torch.ones_like(self.unsup_sample['mask_omega'])
                                                               )
         slice_3_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_3_img_omega'],
                                                               self.unsup_sample['slice_3_k_omega'],
                                                               self.unsup_sample['mask_omega'],
                                                               torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                              torch.ones_like(self.sup_sample['mask_omega'])
+                                                              torch.ones_like(self.unsup_sample['mask_omega'])
                                                               )
         slice_5_img_rec, _ = self.rec_model.forward_get_image(self.unsup_sample['slice_5_img_omega'],
                                                               self.unsup_sample['slice_5_k_omega'],
                                                               self.unsup_sample['mask_omega'],
                                                               torch.zeros_like(self.unsup_sample['slice_1_k_omega']),
-                                                              torch.ones_like(self.sup_sample['mask_omega'])
+                                                              torch.ones_like(self.unsup_sample['mask_omega'])
                                                               )
 
         # interpolation
